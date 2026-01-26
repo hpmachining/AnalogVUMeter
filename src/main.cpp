@@ -6,8 +6,7 @@
 #include "AudioCapture.h"
 #include "MainWindow.h"
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("AnalogVUMeterQt");
     QCoreApplication::setApplicationVersion("0.1.0");
@@ -20,7 +19,8 @@ int main(int argc, char** argv)
     QCommandLineOption listDevicesOpt(QStringList() << "list-devices", "List PulseAudio devices and exit.");
     QCommandLineOption deviceOpt(QStringList() << "device", "PulseAudio device index (legacy, unused).", "index");
     QCommandLineOption deviceNameOpt(QStringList() << "device-name", "PulseAudio device name (sink/source).", "name");
-    QCommandLineOption deviceTypeOpt(QStringList() << "device-type", "Device type: 0=sink monitor (output), 1=source (mic).", "type", "0");
+    QCommandLineOption deviceTypeOpt(QStringList() << "device-type",
+                                     "Device type: 0=sink monitor (output), 1=source (mic).", "type", "0");
     QCommandLineOption refOpt(QStringList() << "ref-dbfs", "Reference dBFS for 0 VU.", "db", "-18");
 
     parser.addOption(listDevicesOpt);

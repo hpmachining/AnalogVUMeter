@@ -7,18 +7,17 @@
 class StereoVUMeterWidget;
 class QCloseEvent;
 
-class MainWindow final : public QMainWindow
-{
+class MainWindow final : public QMainWindow {
     Q_OBJECT
 
-public:
+  public:
     explicit MainWindow(const AudioCapture::Options& options, QWidget* parent = nullptr);
     ~MainWindow() override;
 
-protected:
+  protected:
     void closeEvent(QCloseEvent* event) override;
 
-private:
+  private:
     AudioCapture audio_;
     StereoVUMeterWidget* meter_ = nullptr;
 };
