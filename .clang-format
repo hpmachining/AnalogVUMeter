@@ -1,0 +1,44 @@
+BasedOnStyle: LLVM
+
+# --- Indentation ---
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+
+# --- Braces & layout ---
+BreakBeforeBraces: Attach
+BraceWrapping:
+  AfterControlStatement: Never
+  AfterFunction: false
+  AfterClass: false
+  AfterNamespace: false
+
+# --- Line length ---
+ColumnLimit: 120
+
+# --- Pointers & references ---
+PointerAlignment: Left
+ReferenceAlignment: Pointer
+
+# --- Includes ---
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
+
+# --- Namespaces ---
+NamespaceIndentation: None
+
+# --- Comments ---
+ReflowComments: false
+SpacesInLineCommentPrefix:
+  Minimum: 1
+
+# --- Misc cleanups ---
+SpaceBeforeParens: ControlStatements
+SpacesInParens: Never
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+InsertNewlineAtEOF: true
+
