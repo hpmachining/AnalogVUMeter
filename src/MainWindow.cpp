@@ -89,9 +89,12 @@ void MainWindow::showAbout() {
         this,
         tr("About Analog VU Meter"),
         tr("<h3>Analog VU Meter</h3>"
-           "<p>Version %1</p>"
-           "<p>A real-time audio level meter with classic analog VU meter styling.</p>"
-           "<p>© 2024-2026</p>")
+           "<p>MacOS Version %1</p>"
+           "<p>A real-time audio level meter with classic analog VU meter styling. "
+           "Originally built for Linux by Paul Hentschel. "
+           "Ported to MacOS by GitHub user jansenkarl.</p>"
+           "<p><b>MIT License</b><br>"
+           "Copyright (c) 2026 Paul Hentschel</p>")
             .arg(APP_VERSION));
 }
 
