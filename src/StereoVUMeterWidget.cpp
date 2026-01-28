@@ -66,8 +66,8 @@ StereoVUMeterWidget::StyleParams StereoVUMeterWidget::getStyleParams() const {
             break;
             
         case VUMeterStyle::Vintage:
-            params.labelSizeFactor = 0.060;
-            params.vuTextSizeFactor = 0.075;
+            params.labelSizeFactor = 0.070;
+            params.vuTextSizeFactor = 0.080;
             params.vuTextRadius = 1.29;
             params.singleVuText = false;
             params.faceColorTop = QColor(255, 248, 220);  // Warmer cream
@@ -369,7 +369,7 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
         p.save();
         
         QFont sonyFont(sonyFontFamily_);
-        sonyFont.setPointSizeF(rect.height() * 0.055);  // Adjust size as needed
+        sonyFont.setPointSizeF(rect.height() * 0.075);  // Adjust size as needed
         sonyFont.setBold(false);
         p.setFont(sonyFont);
         p.setPen(sp.labelColor);
@@ -379,12 +379,12 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
         const qreal sonyX = face.left() + padding;
         const qreal sonyY = face.top() + padding;
         
-        // Apply vertical compression (0.85 = 15% shorter height)
+        // Apply vertical compression (0.80 = 20% shorter height)
         p.translate(sonyX, sonyY);
-        p.scale(1.0, 0.85);
+        p.scale(1.0, 0.80);
         
         // Draw at origin since we've already translated
-        const QRectF sonyRect(0, 0, face.width() * 0.25, face.height() * 0.15 / 0.85);
+        const QRectF sonyRect(0, 0, face.width() * 0.25, face.height() * 0.15 / 0.80);
         p.drawText(sonyRect, Qt::AlignLeft | Qt::AlignTop, "SONY");
         
         p.restore();
