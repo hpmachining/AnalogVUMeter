@@ -131,6 +131,15 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
     };
     const float theta = angleForVu(vuDb);
 
+    // --- Tick radii ---
+    const qreal tickR1 = radius * 0.98;
+    const qreal tickR2Major = radius * 1.10;
+    const qreal tickR2Minor = radius * 1.06;
+
+    // --- Tick values (major + minor) ---
+    const QList<float> labels = {-22.0f, -20.0f, -10.0f, -7.0f, -6.0f, -5.0f, -4.0f, -3.0f,
+                                 -2.0f,  -1.0f,  -0.5f,  0.0f,  0.5f,  1.0f,  2.0f,  3.0f};
+
     // --- Arc geometry ---
     const qreal blackWidth = 2.0;
     const qreal redWidth = std::max<qreal>(3.0, rect.width() * 0.018);
@@ -161,16 +170,6 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
     // --- Red arc: +18° → +48° ---
     p.setPen(QPen(QColor(170, 20, 20), redWidth, Qt::SolidLine, Qt::FlatCap));
     p.drawArc(redRect, arcStart(a3), arcSpan(a0, a3));
-
-    // --- Tick radii ---
-    const qreal tickR1 = radius * 0.98;
-    const qreal tickR2Major = radius * 1.10;
-    const qreal tickR2Minor = radius * 1.06;
-
-    // --- Tick values (major + minor) ---
-    const QList<float> labels = {-22.0f, -20.0f, -10.0f, -7.0f, -6.0f, -5.0f, -4.0f, -3.0f,
-                                 -2.0f,  -1.0f,  -0.5f,  0.0f,  0.5f,  1.0f,  2.0f,  3.0f};
-
     // --- Tick marks ---
     for (float v : labels) {
         bool major = (v == -20.0f || v == -10.0f || v == -7.0f || v == -5.0f || v == -3.0f || v == -2.0f ||
@@ -236,19 +235,30 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
     drawVuTextAt(-33.0f, 1.29f);
     drawVuTextAt(33.0f, 1.29f);
 
+    // --- Needle shadow ---
     const QPointF needleTip = polarFromBottomPivot(pivot, radius * 0.98, theta);
-    // Define a shorter needle base — just below the face
-    const QPointF needleBase = polarFromBottomPivot(pivot, radius * 0.35, theta);
-    const QPointF shadowBase = needleBase + QPointF(2.0, 2.0);
     const QPointF shadowTip = needleTip + QPointF(2.0, 2.0);
 
-    // Shadow
     p.setPen(QPen(QColor(0, 0, 0, 80), std::max<qreal>(3.0, rect.width() * 0.008), Qt::SolidLine, Qt::RoundCap));
-    //p.drawLine(shadowBase, shadowTip);
+    p.drawLine(pivot + QPointF(2.0, 2.0), shadowTip);
 
-    // Needle
+    // --- Needle ---
     p.setPen(QPen(QColor(10, 10, 10), std::max<qreal>(3.0, rect.width() * 0.008), Qt::SolidLine, Qt::RoundCap));
-    p.drawLine(needleBase, needleTip);
+    p.drawLine(pivot, needleTip);
+
+    // --- Pivot cap ---
+    const qreal capR = std::max<qreal>(10.0, rect.width() * 0.04);
+    QRadialGradient capGrad(pivot, capR);
+    capGrad.setColorAt(0.0, QColor(210, 210, 210));
+    capGrad.setColorAt(0.6, QColor(90, 90, 92));
+    capGrad.setColorAt(1.0, QColor(20, 20, 22));
+
+    p.setPen(QPen(QColor(0, 0, 0, 120), 1.5));
+    p.setBrush(capGrad);
+    // p.drawEllipse(pivot, capR, capR);
+
+    p.setPen(QPen(QColor(0, 0, 0, 120), 2.0, Qt::SolidLine, Qt::RoundCap));
+    p.drawLine(pivot + QPointF(-capR * 0.35, 0.0), pivot + QPointF(capR * 0.35, 0.0));
 
     p.restore();
 }

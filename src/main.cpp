@@ -12,15 +12,23 @@ int main(int argc, char** argv) {
     QCoreApplication::setApplicationVersion("0.1.0");
 
     QCommandLineParser parser;
+#if defined(__APPLE__)
+    parser.setApplicationDescription("Analog stereo VU meter (Qt 6 + CoreAudio)");
+#else
     parser.setApplicationDescription("Analog stereo VU meter (Qt 6 + PulseAudio)");
+#endif
     parser.addHelpOption();
     parser.addVersionOption();
 
-    QCommandLineOption listDevicesOpt(QStringList() << "list-devices", "List PulseAudio devices and exit.");
-    QCommandLineOption deviceOpt(QStringList() << "device", "PulseAudio device index (legacy, unused).", "index");
+    QCommandLineOption listDevicesOpt(QStringList() << "list-devices", "List audio devices and exit.");
+    QCommandLineOption deviceOpt(QStringList() << "device", "Audio device index (legacy, unused).", "index");
+#if defined(__APPLE__)
+    QCommandLineOption deviceNameOpt(QStringList() << "device-name", "Audio device UID.", "uid");
+#else
     QCommandLineOption deviceNameOpt(QStringList() << "device-name", "PulseAudio device name (sink/source).", "name");
+#endif
     QCommandLineOption deviceTypeOpt(QStringList() << "device-type",
-                                     "Device type: 0=sink monitor (output), 1=source (mic).", "type", "0");
+                                     "Device type: 0=system output, 1=microphone.", "type", "0");
     QCommandLineOption refOpt(QStringList() << "ref-dbfs", "Reference dBFS for 0 VU.", "db", "-18");
 
     parser.addOption(listDevicesOpt);
@@ -38,7 +46,7 @@ int main(int argc, char** argv) {
 
     AudioCapture::Options options;
 
-    // Legacy device index (unused in PulseAudio but kept for compatibility)
+    // Legacy device index (unused but kept for compatibility)
     if (parser.isSet(deviceOpt)) {
         bool ok = false;
         const int idx = parser.value(deviceOpt).toInt(&ok);
@@ -47,7 +55,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // New PulseAudio-specific options
+    // Device name/UID
     if (parser.isSet(deviceNameOpt)) {
         options.deviceName = parser.value(deviceNameOpt);
     }
