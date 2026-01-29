@@ -23,6 +23,8 @@ StereoVUMeterWidget::StereoVUMeterWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_NoSystemBackground);
 
+    meterFace_.load(":/images/model_702w/0.png");
+
     // Load the SONY logo font from resources
     int fontId = QFontDatabase::addApplicationFont(":/fonts/clarendon_regular.otf");
     if (fontId != -1) {
@@ -121,8 +123,9 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
     const QRectF r = rect();
 
     // Load meter face image once (static keeps it cached) and get its aspect ratio
-    static QPixmap meterFace(":/images/model_702w/0.png");
-    const qreal aspect = qreal(meterFace.width()) / qreal(meterFace.height());
+    // static QPixmap meterFace(":/images/model_702w/0.png");
+    // const qreal aspect = qreal(meterFace.width()) / qreal(meterFace.height());
+    const qreal aspect = qreal(meterFace_.width()) / qreal(meterFace_.height());
 
     // Outer padding around the meters
     const qreal outerPad = std::max<qreal>(14.0, r.width() * 0.02);
@@ -149,12 +152,49 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
     const QRectF rightRect(leftRect.right() + gap, y, meterW, meterH);
 
     // Draw the meter face images
-    p.drawPixmap(leftRect, meterFace, meterFace.rect());
-    p.drawPixmap(rightRect, meterFace, meterFace.rect());
+    p.drawPixmap(leftRect, meterFace_, meterFace_.rect());
+    p.drawPixmap(rightRect, meterFace_, meterFace_.rect());
 
     // Future: draw needles on top
-    // drawMeter(p, leftRect, left_);
-    // drawMeter(p, rightRect, right_);
+    drawMeterImageOnly(p, leftRect, left_);
+    drawMeterImageOnly(p, rightRect, right_);
+}
+
+void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb) {
+    p.save();
+
+    // Load images once
+    static QPixmap needleImg(":/images/model_702w/1.png");
+    static QPixmap capImg(":/images/model_702w/2.png");
+
+    // --- Pivot point from INI, scaled to current meter face size ---
+    // const QPointF pivot(rect.left() + 0.0 * (rect.width() / meterFace_.width()),
+    //                     rect.top() + 0.0 * (rect.height() / meterFace_.height()));
+    const QPointF pivot((rect.width() / meterFace_.width()) / 2.0, rect.height() / meterFace_.height());
+
+    // --- DEBUG MODE: No rotation, just place needle so pivot aligns ---
+    {
+        p.save();
+
+        // Needle pivot is at left-center of the PNG
+        //const QPointF needleOffset(0.0, needleImg.height() / 2.0);
+        const QPointF needleOffset(0.0, 0.0);
+
+        // Position so that pivot pixel sits exactly at the computed pivot
+        const QPointF drawPos = pivot - needleOffset;
+
+        p.drawPixmap(drawPos, needleImg);
+
+        p.restore();
+    }
+
+    // --- Draw pivot cap (still useful for alignment testing) ---
+    {
+        //const QPointF capPos = pivot - QPointF(capImg.width() / 2.0, capImg.height() / 2.0);
+        //p.drawPixmap(rect, capImg, capImg.rect());
+    }
+
+    p.restore();
 }
 
 void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb) {

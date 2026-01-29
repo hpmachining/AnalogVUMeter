@@ -37,6 +37,8 @@ class StereoVUMeterWidget final : public QWidget {
     VUMeterStyle style_ = VUMeterStyle::Original;
     QString sonyFontFamily_;  // Font family name for SONY logo
 
+    QPixmap meterFace_;
+    void drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb);
     void drawMeter(QPainter& p, const QRectF& rect, float vuDb);
     
     // Style-dependent parameters
