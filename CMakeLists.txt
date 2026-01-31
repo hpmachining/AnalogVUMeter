@@ -49,6 +49,10 @@ else()
     set(PLATFORM_COMPILE_OPTIONS ${PULSEAUDIO_CFLAGS_OTHER})
 endif()
 
+qt_add_resources(analog_vu_meter_resources
+    resources.qrc
+)
+
 add_executable(analog_vu_meter
     src/main.cpp
     src/MainWindow.cpp
@@ -56,10 +60,18 @@ add_executable(analog_vu_meter
     src/StereoVUMeterWidget.cpp
     src/StereoVUMeterWidget.h
     src/AudioCapture.h
+    src/VuAudioDsp.cpp
+    src/VuAudioDsp.h
+    src/VUMeterScale.cpp
+    src/VUMeterScale.h
+    src/VUMeterSkin.h
     src/VUBallistics.cpp
     src/VUBallistics.h
-    resources.qrc
     ${PLATFORM_SOURCES}
+)
+
+target_sources(analog_vu_meter PRIVATE
+    ${analog_vu_meter_resources}
 )
 
 # Include directories

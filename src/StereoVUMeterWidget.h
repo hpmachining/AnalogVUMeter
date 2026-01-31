@@ -3,6 +3,9 @@
 #include <QFont>
 #include <QWidget>
 
+#include "VUMeterScale.h"
+#include "VUMeterSkin.h"
+
 class QPaintEvent;
 class QPainter;
 class QRectF;
@@ -16,40 +19,6 @@ enum class VUMeterStyle {
     Modern,   // Clean modern look
     Black,    // Modern style with inverted black/white colors
     Skin      // Image based graphics
-};
-
-struct VUMeterCalibration {
-    int minAngle;
-    int minLevel;
-    int zeroAngle;
-    int zeroLevel;
-    int maxAngle;
-    int maxLevel;
-
-    int pivotX;
-    int pivotY;
-
-    qreal mobilityNeg;
-    qreal mobilityPos;
-};
-
-struct VUMeterSkin {
-    QPixmap face;
-    QPixmap needle;
-    QPixmap cap;
-
-    VUMeterCalibration calib;
-};
-
-struct VUSkinPackage {
-    bool isStereo = false; // false = single meter, true = double meter
-
-    // Single meter
-    VUMeterSkin single;
-
-    // Stereo meters
-    VUMeterSkin left;
-    VUMeterSkin right;
 };
 
 class StereoVUMeterWidget final : public QWidget {
@@ -73,7 +42,7 @@ class StereoVUMeterWidget final : public QWidget {
     //QPixmap meterFace_;
     void drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb, VUMeterSkin& skin);
     void drawMeter(QPainter& p, const QRectF& rect, float vuDb);
-    QVector<QPair<float, float>> calibrationTable_;
+    VUMeterScaleTable calibrationTable_;
 
     // Style-dependent parameters
     struct StyleParams {

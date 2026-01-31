@@ -10,6 +10,8 @@
 #include <qpixmap.h>
 #include <qtypes.h>
 
+#include "VUMeterScale.h"
+
 static constexpr float kPi = 3.14159265358979323846f;
 
 static QPointF polarFromBottomPivot(const QPointF& pivot, float radius, float thetaDeg) {
@@ -17,29 +19,6 @@ static QPointF polarFromBottomPivot(const QPointF& pivot, float radius, float th
     const float sx = std::sin(theta);
     const float cy = std::cos(theta);
     return QPointF(pivot.x() + radius * sx, pivot.y() - radius * cy);
-}
-
-static float angleForVu(float vu, const QVector<QPair<float, float>>& table) {
-    // Clamp to table range
-    if (vu <= table.first().first)
-        return table.first().second;
-    if (vu >= table.last().first)
-        return table.last().second;
-
-    // Find segment
-    for (int i = 0; i < table.size() - 1; ++i) {
-        float v0 = table[i].first;
-        float a0 = table[i].second;
-        float v1 = table[i + 1].first;
-        float a1 = table[i + 1].second;
-
-        if (vu >= v0 && vu <= v1) {
-            float t = (vu - v0) / (v1 - v0);
-            return a0 + t * (a1 - a0);
-        }
-    }
-
-    return table.last().second; // fallback
 }
 
 StereoVUMeterWidget::StereoVUMeterWidget(QWidget* parent) : QWidget(parent) {
@@ -218,21 +197,7 @@ void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p, const QRectF& rect, fl
     const QPointF pivot(rect.left() + skin.calib.pivotX * scaleX, rect.top() + skin.calib.pivotY * scaleY);
 
     // --- Compute rotation angle ---
-    const float angleDeg = angleForVu(vuDb, calibrationTable_);
-
-    // float angleDeg = 0.0f;
-
-    // if (vuDb <= skin.calib.minLevel)
-    //     angleDeg = skin.calib.minAngle;
-    // else if (vuDb >= skin.calib.maxLevel)
-    //     angleDeg = skin.calib.maxAngle;
-    // else if (vuDb < skin.calib.zeroLevel) {
-    //     float t = (vuDb - skin.calib.minLevel) / (skin.calib.zeroLevel - skin.calib.minLevel);
-    //     angleDeg = skin.calib.minAngle + t * (skin.calib.zeroAngle - skin.calib.minAngle);
-    // } else {
-    //     float t = (vuDb - skin.calib.zeroLevel) / (skin.calib.maxLevel - skin.calib.zeroLevel);
-    //     angleDeg = skin.calib.zeroAngle + t * (skin.calib.maxAngle - skin.calib.zeroAngle);
-    // }
+    const float angleDeg = vuToAngleDeg(vuDb, calibrationTable_);
 
     // --- Rotate ONLY the needle ---
     {
@@ -290,7 +255,7 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
     const QPointF pivot(face.center().x(), face.bottom() + face.height() * 0.35);
     const qreal radius = std::min(face.width(), face.height()) * 1.00;
 
-    const float theta = angleForVu(vuDb, calibrationTable_);
+    const float theta = vuToAngleDeg(vuDb, calibrationTable_);
 
     // --- Draw needle with clipping to face area ---
     // This makes the needle visible only within the face, hiding the pivot area
@@ -351,8 +316,8 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
 
     // Scale angles
     const float aMin = -48.0f;
-    const float a0 = angleForVu(0.0f, calibrationTable_); // +18°
-    const float a3 = angleForVu(3.0f, calibrationTable_); // +47°
+    const float a0 = vuToAngleDeg(0.0f, calibrationTable_); // +18°
+    const float a3 = vuToAngleDeg(3.0f, calibrationTable_); // +47°
 
     auto arcStart = [](float logicalEndDeg) { return int((90.0f - logicalEndDeg) * 16.0f); };
     auto arcSpan = [](float logicalStartDeg, float logicalEndDeg) {
@@ -364,7 +329,7 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
     p.setPen(QPen(arcColor, blackWidth, Qt::SolidLine, Qt::FlatCap));
     p.drawArc(blackRect, arcStart(a0), arcSpan(aMin, a0));
 
-    // --- Red arc: +18° → +48° ---
+    // --- Red arc: +18° → +47° ---
     p.setPen(QPen(sp.redZoneColor, redWidth, Qt::SolidLine, Qt::FlatCap));
     p.drawArc(redRect, arcStart(a3), arcSpan(a0, a3));
     
@@ -373,7 +338,7 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
         bool major = (v == -20.0f || v == -10.0f || v == -7.0f || v == -5.0f || v == -3.0f || v == -2.0f ||
                       v == -1.0f || v == 0.0f || v == 1.0f || v == 2.0f || v == 3.0f);
 
-        const float a = angleForVu(v, calibrationTable_);
+        const float a = vuToAngleDeg(v, calibrationTable_);
 
         const QPointF p1 = polarFromBottomPivot(pivot, tickR1, a);
         const QPointF p2 = polarFromBottomPivot(pivot, major ? tickR2Major : tickR2Minor, a);
@@ -508,17 +473,5 @@ void StereoVUMeterWidget::loadDefaultSkin() {
     skin_.left = s;
     skin_.right = s;
 
-    calibrationTable_ = {{-20, -47},
-                         {-10, -34},
-                         {-7, -25},
-                         {-6, -21},
-                         {-5, -16},
-                         {-4, -11},
-                         {-3, -5},
-                         {-2, 2},
-                         {-1, 9},
-                         {0, 18},
-                         {1, 27},
-                         {2, 38},
-                         {3, 47}};
+    calibrationTable_ = builtInDefaultScaleTable();
 }

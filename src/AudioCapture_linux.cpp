@@ -1,9 +1,8 @@
-#if !defined(__APPLE__)
+#if defined(__linux__)
 
 #include "AudioCapture.h"
+#include "VuAudioDsp.h"
 
-#include <algorithm>
-#include <cmath>
 #include <thread>
 
 #include <QByteArray>
@@ -383,95 +382,26 @@ void AudioCapture::stream_read_callback(pa_stream* s, size_t length, void* userd
         return;
     }
 
-    // --- Compute raw RMS for this buffer ---
-    double sumL = 0.0;
-    double sumR = 0.0;
+    static VuAudioDspState dspState;
+    VuReferenceOptions ref;
+    ref.referenceDbfs = self->options_.referenceDbfs;
+    ref.referenceDbfsOverride = self->options_.referenceDbfsOverride;
+    ref.deviceType = self->options_.deviceType;
 
-    static float prevL = 0.0f;
-    static float prevR = 0.0f;
-    for (unsigned int i = 0; i < frames; ++i) {
-        const float rawL = data[i * channels + 0];
-        const float rawR = (channels > 1) ? data[i * channels + 1] : rawL;
-
-        // Transient pre-emphasis (very subtle)
-        const float l = rawL + 0.15f * (rawL - prevL);
-        const float r = rawR + 0.15f * (rawR - prevR);
-
-        prevL = rawL;
-        prevR = rawR;
-
-        sumL += static_cast<double>(l) * static_cast<double>(l);
-        sumR += static_cast<double>(r) * static_cast<double>(r);
-    }
-
-    float rmsL = std::sqrt(static_cast<float>(sumL / frames));
-    float rmsR = std::sqrt(static_cast<float>(sumR / frames));
-
-    // --- Vintage VU RMS integration (250 ms) ---
-    static float rmsL_smooth = 0.0f;
-    static float rmsR_smooth = 0.0f;
-
-    const float wakeThreshold = 0.002f; // about -54 dBFS
-
-    if (rmsL > wakeThreshold) {
-        rmsL_smooth = rmsL * rmsL;
-    }
-    if (rmsR > wakeThreshold) {
-        rmsR_smooth = rmsR * rmsR;
-    }
-
-    float vuTau = 0.020f;
-    float dt = static_cast<float>(frames) / static_cast<float>(ss->rate);
-    dt = std::min(dt, 0.050f); // clamp to 50 ms
-    const float alpha = std::exp(-dt / vuTau);
-
-    rmsL_smooth = alpha * rmsL_smooth + (1.0f - alpha) * (rmsL * rmsL);
-    rmsR_smooth = alpha * rmsR_smooth + (1.0f - alpha) * (rmsR * rmsR);
-
-    float rmsL_vu = std::sqrt(rmsL_smooth);
-    float rmsR_vu = std::sqrt(rmsR_smooth);
-
-    // --- Noise floor applied to smoothed RMS ---
-    const float noiseFloor = 0.001f;
-    if (rmsL_vu < noiseFloor)
-        rmsL_vu = 0.0f;
-    if (rmsR_vu < noiseFloor)
-        rmsR_vu = 0.0f;
-
-    // --- Convert to dBFS ---
-    const float eps = 1e-12f;
-    const float dbfsL = 20.0f * std::log10(std::max(rmsL_vu, eps));
-    const float dbfsR = 20.0f * std::log10(std::max(rmsR_vu, eps));
-
-    // --- Reference level for hi-fi VU behavior ---
-    float effectiveRefDbfs;
-    if (self->options_.referenceDbfsOverride) {
-        effectiveRefDbfs = static_cast<float>(self->options_.referenceDbfs);
-    } else if (self->options_.deviceType == 1) {
-        // Microphone mode
-        effectiveRefDbfs = -0.0f;
-    } else {
-        // System output mode
-        effectiveRefDbfs = -14.0f;
-    }
-
-    float targetVuL = dbfsL - effectiveRefDbfs;
-    float targetVuR = dbfsR - effectiveRefDbfs;
-
-    static bool meterAwake = false;
-    if (!meterAwake && (rmsL_vu > 0.002f || rmsR_vu > 0.002f)) {
-        self->ballisticsL_.reset(targetVuL);
-        self->ballisticsR_.reset(targetVuR);
-        meterAwake = true;
-    }
-
-    // --- Apply ballistics using per-callback dt ---
-    float vuL = self->ballisticsL_.process(targetVuL, dt);
-    float vuR = self->ballisticsR_.process(targetVuR, dt);
-
-    // --- Clamp to meter scale ---
-    vuL = std::clamp(vuL, kMinVu, kMaxVu);
-    vuR = std::clamp(vuR, kMinVu, kMaxVu);
+    float vuL = kMinVu;
+    float vuR = kMinVu;
+    processInterleavedFloatAudioToVuDb(data,
+                                        frames,
+                                        channels,
+                                        static_cast<float>(ss->rate),
+                                        ref,
+                                        self->ballisticsL_,
+                                        self->ballisticsR_,
+                                        dspState,
+                                        kMinVu,
+                                        kMaxVu,
+                                        vuL,
+                                        vuR);
 
     self->leftVuDb_.store(vuL, std::memory_order_relaxed);
     self->rightVuDb_.store(vuR, std::memory_order_relaxed);
@@ -606,4 +536,4 @@ void AudioCapture::context_state_callback(pa_context* c, void* userdata) {
     }
 }
 
-#endif // !__APPLE__
+#endif // !__linux__
