@@ -9,12 +9,12 @@
 #include <QPair>
 #include <pulse/pulseaudio.h>
 
-static constexpr float kMinVu = -22.0f;
-static constexpr float kMaxVu = 3.0f;
+static constexpr float kAudioFloorVu = -96.0f;
+static constexpr float kAudioCeilingVu = 6.0f;
 
 AudioCapture::AudioCapture(const Options& options, QObject* parent)
-    : QObject(parent), options_(options), currentDeviceUID_(options.deviceName), ballisticsL_(kMinVu),
-      ballisticsR_(kMinVu) {}
+    : QObject(parent), options_(options), currentDeviceUID_(options.deviceName), ballisticsL_(kAudioFloorVu),
+      ballisticsR_(kAudioFloorVu) {}
 
 AudioCapture::~AudioCapture() { stop(); }
 
@@ -105,10 +105,10 @@ bool AudioCapture::switchDevice(const QString& deviceUID, QString* errorOut) {
     stop();
 
     // Reset ballistics
-    ballisticsL_.reset(kMinVu);
-    ballisticsR_.reset(kMinVu);
-    leftVuDb_.store(kMinVu, std::memory_order_relaxed);
-    rightVuDb_.store(kMinVu, std::memory_order_relaxed);
+    ballisticsL_.reset(kAudioFloorVu);
+    ballisticsR_.reset(kAudioFloorVu);
+    leftVuDb_.store(kAudioFloorVu, std::memory_order_relaxed);
+    rightVuDb_.store(kAudioFloorVu, std::memory_order_relaxed);
 
     // Update options with new device
     options_.deviceName = deviceUID;
@@ -388,8 +388,8 @@ void AudioCapture::stream_read_callback(pa_stream* s, size_t length, void* userd
     ref.referenceDbfsOverride = self->options_.referenceDbfsOverride;
     ref.deviceType = self->options_.deviceType;
 
-    float vuL = kMinVu;
-    float vuR = kMinVu;
+    float vuL = kAudioFloorVu;
+    float vuR = kAudioFloorVu;
     processInterleavedFloatAudioToVuDb(data,
                                         frames,
                                         channels,
@@ -398,8 +398,8 @@ void AudioCapture::stream_read_callback(pa_stream* s, size_t length, void* userd
                                         self->ballisticsL_,
                                         self->ballisticsR_,
                                         dspState,
-                                        kMinVu,
-                                        kMaxVu,
+                                        kAudioFloorVu,
+                                        kAudioCeilingVu,
                                         vuL,
                                         vuR);
 

@@ -1,11 +1,15 @@
 #include "MainWindow.h"
 
 #include <QCloseEvent>
+#include <QFileDialog>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QTimer>
 
+#if defined(ANALOGVU_HAS_LIBZIP) && (ANALOGVU_HAS_LIBZIP == 1)
+#include "SkinImporter.h"
+#endif
 #include "StereoVUMeterWidget.h"
 #include "version.h"
 
@@ -30,7 +34,6 @@ MainWindow::MainWindow(const AudioCapture::Options& options, QWidget* parent) : 
             QString("Audio initialization failed: %1\n\nThe VU meter will be displayed but won't show audio levels.")
                 .arg(err));
     }
-
     auto* timer = new QTimer(this);
     timer->setTimerType(Qt::PreciseTimer);
     timer->setInterval(16);
@@ -81,12 +84,18 @@ void MainWindow::createMenuBar() {
     // Style menu
     styleMenu_ = menuBar->addMenu(tr("&Style"));
 
-    // Create action group for exclusive style selection
-    styleActionGroup_ = new QActionGroup(this);
-    styleActionGroup_->setExclusive(true);
-    connect(styleActionGroup_, &QActionGroup::triggered, this, &MainWindow::onStyleSelected);
+    vectorStyleMenu_ = styleMenu_->addMenu(tr("&Vector"));
+    skinStyleMenu_ = styleMenu_->addMenu(tr("&Skin"));
 
-    // Populate the style menu
+    vectorStyleActionGroup_ = new QActionGroup(this);
+    vectorStyleActionGroup_->setExclusive(true);
+    connect(vectorStyleActionGroup_, &QActionGroup::triggered, this, &MainWindow::onVectorStyleSelected);
+
+    skinStyleActionGroup_ = new QActionGroup(this);
+    skinStyleActionGroup_->setExclusive(true);
+    connect(skinStyleActionGroup_, &QActionGroup::triggered, this, &MainWindow::onSkinSelected);
+
+    skinManager_.scan();
     populateStyleMenu();
 
     // About action - Qt automatically moves this to the app menu on macOS
@@ -216,38 +225,153 @@ void MainWindow::onReferenceSelected(QAction* action) {
 void MainWindow::refreshDeviceMenu() { populateDeviceMenu(); }
 
 void MainWindow::populateStyleMenu() {
-    // Style options with their enum values
-    struct StyleInfo {
+    if (!styleMenu_ || !vectorStyleMenu_ || !skinStyleMenu_)
+        return;
+
+    for (QAction* a : vectorStyleActionGroup_->actions()) {
+        vectorStyleActionGroup_->removeAction(a);
+    }
+    for (QAction* a : skinStyleActionGroup_->actions()) {
+        skinStyleActionGroup_->removeAction(a);
+    }
+
+    vectorStyleMenu_->clear();
+    skinStyleMenu_->clear();
+
+    struct VectorStyleInfo {
         QString name;
         VUMeterStyle style;
     };
 
-    const StyleInfo styles[] = {
-        {tr("Original"), VUMeterStyle::Original},
+    const VectorStyleInfo vectorStyles[] = {
+        {tr("Classic"), VUMeterStyle::Original},
         {tr("Sony"), VUMeterStyle::Sony},
         {tr("Vintage"), VUMeterStyle::Vintage},
         {tr("Modern"), VUMeterStyle::Modern},
         {tr("Black"), VUMeterStyle::Black},
-        {tr("Skin"), VUMeterStyle::Skin} // <-- added
     };
 
-    VUMeterStyle currentStyle = meter_->style();
+    const VUMeterStyle currentStyle = meter_->style();
+    const bool inSkinMode = (currentStyle == VUMeterStyle::Skin);
 
-    for (const StyleInfo& info : styles) {
-        QAction* action = styleMenu_->addAction(info.name);
+    for (const VectorStyleInfo& info : vectorStyles) {
+        QAction* action = vectorStyleMenu_->addAction(info.name);
         action->setCheckable(true);
         action->setData(static_cast<int>(info.style));
-        styleActionGroup_->addAction(action);
-
-        // Check if this is the current style
-        if (info.style == currentStyle) {
+        vectorStyleActionGroup_->addAction(action);
+        if (!inSkinMode && info.style == currentStyle) {
             action->setChecked(true);
         }
     }
+
+    QAction* defaultSkin = skinStyleMenu_->addAction(tr("Default"));
+    defaultSkin->setCheckable(true);
+    defaultSkin->setData(QStringLiteral("__default__"));
+    skinStyleActionGroup_->addAction(defaultSkin);
+
+    if (inSkinMode && skinManager_.activeSkinId().isEmpty()) {
+        defaultSkin->setChecked(true);
+    }
+
+    skinStyleMenu_->addSeparator();
+
+    const QList<SkinManager::SkinInfo> skins = skinManager_.availableSkins();
+    for (const SkinManager::SkinInfo& s : skins) {
+        QAction* action = skinStyleMenu_->addAction(s.name);
+        action->setCheckable(true);
+        action->setData(s.id);
+        skinStyleActionGroup_->addAction(action);
+
+        if (inSkinMode && !skinManager_.activeSkinId().isEmpty() && skinManager_.activeSkinId() == s.id) {
+            action->setChecked(true);
+        }
+    }
+
+    skinStyleMenu_->addSeparator();
+    QAction* importSkinAction = skinStyleMenu_->addAction(tr("Import Skin..."));
+    connect(importSkinAction, &QAction::triggered, this, &MainWindow::importSkin);
+#if !defined(ANALOGVU_HAS_LIBZIP) || (ANALOGVU_HAS_LIBZIP == 0)
+    importSkinAction->setEnabled(false);
+#endif
 }
 
-void MainWindow::onStyleSelected(QAction* action) {
-    int styleValue = action->data().toInt();
-    VUMeterStyle style = static_cast<VUMeterStyle>(styleValue);
+void MainWindow::onVectorStyleSelected(QAction* action) {
+    const int styleValue = action->data().toInt();
+    const VUMeterStyle style = static_cast<VUMeterStyle>(styleValue);
+
+    if (style == VUMeterStyle::Skin)
+        return;
+
+    if (skinStyleActionGroup_ && skinStyleActionGroup_->checkedAction()) {
+        skinStyleActionGroup_->checkedAction()->setChecked(false);
+    }
+
+    skinManager_.clearActiveSkin();
+    meter_->clearSkin();
     meter_->setStyle(style);
+}
+
+void MainWindow::onSkinSelected(QAction* action) {
+    if (!action)
+        return;
+
+    if (vectorStyleActionGroup_ && vectorStyleActionGroup_->checkedAction()) {
+        vectorStyleActionGroup_->checkedAction()->setChecked(false);
+    }
+
+    const QString skinId = action->data().toString();
+    if (skinId == QStringLiteral("__default__")) {
+        skinManager_.clearActiveSkin();
+        meter_->clearSkin();
+        meter_->setStyle(VUMeterStyle::Skin);
+        return;
+    }
+
+    if (skinId.isEmpty())
+        return;
+
+    const SkinManager::LoadedSkin loaded = skinManager_.loadSkin(skinId);
+    if (!loaded.ok) {
+        QMessageBox::warning(this, tr("Skin Load Failed"), loaded.error);
+        populateStyleMenu();
+        return;
+    }
+
+    skinManager_.setActiveSkinId(skinId);
+    meter_->setSkinPackage(loaded.package, loaded.singleScale, loaded.leftScale, loaded.rightScale);
+    meter_->setStyle(VUMeterStyle::Skin);
+}
+
+void MainWindow::importSkin() {
+    const QString filePath = QFileDialog::getOpenFileName(this, tr("Import AIMP Skin"), QString(), tr("ZIP files (*.zip)"));
+    if (filePath.isEmpty())
+        return;
+
+#if !defined(ANALOGVU_HAS_LIBZIP) || (ANALOGVU_HAS_LIBZIP == 0)
+    QMessageBox::warning(this,
+                         tr("Import Unavailable"),
+                         tr("Skin import is disabled because libzip was not found at build time."));
+    return;
+#else
+    SkinImporter importer;
+    const SkinImporter::ImportResult r = importer.importAimpZip(filePath);
+    if (!r.ok) {
+        QMessageBox::warning(this, tr("Import Failed"), r.error);
+        return;
+    }
+
+    skinManager_.scan();
+
+    const SkinManager::LoadedSkin loaded = skinManager_.loadSkin(r.skinName);
+    if (!loaded.ok) {
+        QMessageBox::warning(this, tr("Skin Load Failed"), loaded.error);
+        populateStyleMenu();
+        return;
+    }
+
+    skinManager_.setActiveSkinId(r.skinName);
+    meter_->setSkinPackage(loaded.package, loaded.singleScale, loaded.leftScale, loaded.rightScale);
+    meter_->setStyle(VUMeterStyle::Skin);
+    populateStyleMenu();
+#endif
 }

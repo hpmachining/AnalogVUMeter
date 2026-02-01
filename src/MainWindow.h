@@ -4,6 +4,7 @@
 #include <QMainWindow>
 
 #include "AudioCapture.h"
+#include "SkinManager.h"
 
 class StereoVUMeterWidget;
 class QCloseEvent;
@@ -23,7 +24,9 @@ class MainWindow final : public QMainWindow {
   private slots:
     void onDeviceSelected(QAction* action);
     void onReferenceSelected(QAction* action);
-    void onStyleSelected(QAction* action);
+    void onVectorStyleSelected(QAction* action);
+    void onSkinSelected(QAction* action);
+    void importSkin();
     void refreshDeviceMenu();
     void showAbout();
 
@@ -36,12 +39,17 @@ class MainWindow final : public QMainWindow {
     AudioCapture audio_;
     StereoVUMeterWidget* meter_ = nullptr;
 
+    SkinManager skinManager_;
+
     // Menu components
     QMenu* audioMenu_ = nullptr;
     QMenu* deviceMenu_ = nullptr;
     QMenu* referenceMenu_ = nullptr;
     QMenu* styleMenu_ = nullptr;
+    QMenu* vectorStyleMenu_ = nullptr;
+    QMenu* skinStyleMenu_ = nullptr;
     QActionGroup* deviceActionGroup_ = nullptr;
     QActionGroup* referenceActionGroup_ = nullptr;
-    QActionGroup* styleActionGroup_ = nullptr;
+    QActionGroup* vectorStyleActionGroup_ = nullptr;
+    QActionGroup* skinStyleActionGroup_ = nullptr;
 };

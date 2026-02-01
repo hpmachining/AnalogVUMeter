@@ -21,6 +21,22 @@ static QPointF polarFromBottomPivot(const QPointF& pivot, float radius, float th
     return QPointF(pivot.x() + radius * sx, pivot.y() - radius * cy);
 }
 
+void StereoVUMeterWidget::setSkinPackage(const VUSkinPackage& skin,
+                                        const VUMeterScaleTable& singleScale,
+                                        const VUMeterScaleTable& leftScale,
+                                        const VUMeterScaleTable& rightScale) {
+    skin_ = skin;
+    singleScaleTable_ = singleScale;
+    leftScaleTable_ = leftScale;
+    rightScaleTable_ = rightScale;
+    update();
+}
+
+void StereoVUMeterWidget::clearSkin() {
+    loadDefaultSkin();
+    update();
+}
+
 StereoVUMeterWidget::StereoVUMeterWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_NoSystemBackground);
@@ -182,12 +198,16 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
         p.drawPixmap(rightRect, skin_.right.face, skin_.right.face.rect());
 
         // Draw needles + caps
-        drawMeterImageOnly(p, leftRect, left_, skin_.left);
-        drawMeterImageOnly(p, rightRect, right_, skin_.right);
+        drawMeterImageOnly(p, leftRect, left_, skin_.left, leftScaleTable_);
+        drawMeterImageOnly(p, rightRect, right_, skin_.right, rightScaleTable_);
     }
 }
 
-void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb, VUMeterSkin& skin) {
+void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p,
+                                             const QRectF& rect,
+                                             float vuDb,
+                                             VUMeterSkin& skin,
+                                             const VUMeterScaleTable& scaleTable) {
     p.save();
 
     // --- Compute pivot in widget coordinates ---
@@ -197,7 +217,7 @@ void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p, const QRectF& rect, fl
     const QPointF pivot(rect.left() + skin.calib.pivotX * scaleX, rect.top() + skin.calib.pivotY * scaleY);
 
     // --- Compute rotation angle ---
-    const float angleDeg = vuToAngleDeg(vuDb, calibrationTable_);
+    const float angleDeg = vuToAngleDeg(vuDb, scaleTable);
 
     // --- Rotate ONLY the needle ---
     {
@@ -255,7 +275,7 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
     const QPointF pivot(face.center().x(), face.bottom() + face.height() * 0.35);
     const qreal radius = std::min(face.width(), face.height()) * 1.00;
 
-    const float theta = vuToAngleDeg(vuDb, calibrationTable_);
+    const float theta = vuToAngleDeg(vuDb, singleScaleTable_);
 
     // --- Draw needle with clipping to face area ---
     // This makes the needle visible only within the face, hiding the pivot area
@@ -316,8 +336,8 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
 
     // Scale angles
     const float aMin = -48.0f;
-    const float a0 = vuToAngleDeg(0.0f, calibrationTable_); // +18°
-    const float a3 = vuToAngleDeg(3.0f, calibrationTable_); // +47°
+    const float a0 = vuToAngleDeg(0.0f, singleScaleTable_); // +18°
+    const float a3 = vuToAngleDeg(3.0f, singleScaleTable_); // +47°
 
     auto arcStart = [](float logicalEndDeg) { return int((90.0f - logicalEndDeg) * 16.0f); };
     auto arcSpan = [](float logicalStartDeg, float logicalEndDeg) {
@@ -338,7 +358,7 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
         bool major = (v == -20.0f || v == -10.0f || v == -7.0f || v == -5.0f || v == -3.0f || v == -2.0f ||
                       v == -1.0f || v == 0.0f || v == 1.0f || v == 2.0f || v == 3.0f);
 
-        const float a = vuToAngleDeg(v, calibrationTable_);
+        const float a = vuToAngleDeg(v, singleScaleTable_);
 
         const QPointF p1 = polarFromBottomPivot(pivot, tickR1, a);
         const QPointF p2 = polarFromBottomPivot(pivot, major ? tickR2Major : tickR2Minor, a);
@@ -473,5 +493,7 @@ void StereoVUMeterWidget::loadDefaultSkin() {
     skin_.left = s;
     skin_.right = s;
 
-    calibrationTable_ = builtInDefaultScaleTable();
+    singleScaleTable_ = builtInDefaultScaleTable();
+    leftScaleTable_ = singleScaleTable_;
+    rightScaleTable_ = singleScaleTable_;
 }

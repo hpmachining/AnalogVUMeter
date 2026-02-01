@@ -12,8 +12,9 @@ A cross-platform desktop application that visually replicates a classic analog s
   - subtle needle "life" (very small jitter)
 - Refresh rate ~60 Hz
 - Audio capture runs outside the GUI thread
-- **System output monitoring** (captures what you hear through speakers)
+- System output monitoring (captures what you hear through speakers)
 - Microphone input support
+- Import custom meter skins at runtime
 - Cross-platform: Linux (PulseAudio/PipeWire) and macOS (CoreAudio)
 
 ## Dependencies
@@ -23,15 +24,18 @@ A cross-platform desktop application that visually replicates a classic analog s
 - C++20 compiler (GCC 11+, Clang 14+, or Apple Clang)
 - CMake 3.20+
 - Qt 6 (Widgets)
+- libzip
 
 ### Linux
 
 - PulseAudio (libpulse)
+- libzip
 
 ### macOS
 
 - CoreAudio framework (included with macOS)
 - AudioToolbox framework (included with macOS)
+- libzip
 
 ## Installation
 
@@ -42,7 +46,7 @@ A cross-platform desktop application that visually replicates a classic analog s
 xcode-select --install
 
 # Install dependencies via Homebrew
-brew install cmake qt@6
+brew install cmake qt@6 libzip
 
 # You may need to add Qt to your PATH or set CMAKE_PREFIX_PATH
 export CMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
@@ -51,19 +55,19 @@ export CMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
 ### Linux (Debian/Ubuntu)
 
 ```bash
-sudo apt-get install -y build-essential cmake pkg-config qt6-base-dev libpulse-dev
+sudo apt-get install -y build-essential cmake pkg-config qt6-base-dev libpulse-dev libzip-dev
 ```
 
 ### Linux (Fedora)
 
 ```bash
-sudo dnf install -y @development-tools cmake pkgconf-pkg-config qt6-qtbase-devel pulseaudio-libs-devel
+sudo dnf install -y @development-tools cmake pkgconf-pkg-config qt6-qtbase-devel pulseaudio-libs-devel libzip-devel
 ```
 
 ### Linux (Arch Linux)
 
 ```bash
-sudo pacman -S base-devel cmake pkgconf qt6-base pulseaudio
+sudo pacman -S base-devel cmake pkgconf qt6-base pulseaudio libzip
 ```
 
 ## Build

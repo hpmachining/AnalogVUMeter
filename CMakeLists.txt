@@ -9,7 +9,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
 # Generate version config header
 configure_file(
@@ -53,10 +53,43 @@ qt_add_resources(analog_vu_meter_resources
     resources.qrc
 )
 
+option(ANALOGVU_ENABLE_SKIN_IMPORT "Enable AIMP skin ZIP import" ON)
+
+find_path(LIBZIP_INCLUDE_DIR zip.h)
+find_library(LIBZIP_LIBRARY NAMES zip)
+
+set(ANALOGVU_HAS_LIBZIP 0)
+if(ANALOGVU_ENABLE_SKIN_IMPORT AND LIBZIP_INCLUDE_DIR AND LIBZIP_LIBRARY)
+    set(ANALOGVU_HAS_LIBZIP 1)
+
+    add_library(analog_vu_skin_importer STATIC
+        src/SkinImporter.cpp
+        src/SkinImporter.h
+    )
+
+    target_include_directories(analog_vu_skin_importer PRIVATE
+        ${LIBZIP_INCLUDE_DIR}
+    )
+
+    target_link_libraries(analog_vu_skin_importer PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        ${LIBZIP_LIBRARY}
+    )
+
+    target_compile_definitions(analog_vu_skin_importer PRIVATE
+        ANALOGVU_HAS_LIBZIP=1
+    )
+elseif(ANALOGVU_ENABLE_SKIN_IMPORT)
+    message(WARNING "libzip not found (zip.h + libzip). Skin import will be disabled at runtime.")
+endif()
+
 add_executable(analog_vu_meter
     src/main.cpp
     src/MainWindow.cpp
     src/MainWindow.h
+    src/SkinManager.cpp
+    src/SkinManager.h
     src/StereoVUMeterWidget.cpp
     src/StereoVUMeterWidget.h
     src/AudioCapture.h
@@ -85,6 +118,16 @@ target_link_libraries(analog_vu_meter PRIVATE
     Qt6::Widgets
     ${PLATFORM_LIBRARIES}
 )
+
+target_compile_definitions(analog_vu_meter PRIVATE
+    ANALOGVU_HAS_LIBZIP=${ANALOGVU_HAS_LIBZIP}
+)
+
+if(ANALOGVU_HAS_LIBZIP)
+    target_link_libraries(analog_vu_meter PRIVATE
+        analog_vu_skin_importer
+    )
+endif()
 
 # Platform-specific compiler flags
 if(PLATFORM_COMPILE_OPTIONS)

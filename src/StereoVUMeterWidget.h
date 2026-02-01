@@ -30,6 +30,13 @@ class StereoVUMeterWidget final : public QWidget {
     void setStyle(VUMeterStyle style);
     VUMeterStyle style() const { return style_; }
 
+    void clearSkin();
+
+    void setSkinPackage(const VUSkinPackage& skin,
+                        const VUMeterScaleTable& singleScale,
+                        const VUMeterScaleTable& leftScale,
+                        const VUMeterScaleTable& rightScale);
+
   protected:
     void paintEvent(QPaintEvent* event) override;
 
@@ -40,9 +47,11 @@ class StereoVUMeterWidget final : public QWidget {
     QString sonyFontFamily_; // Font family name for SONY logo
 
     //QPixmap meterFace_;
-    void drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb, VUMeterSkin& skin);
+    void drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb, VUMeterSkin& skin, const VUMeterScaleTable& scaleTable);
     void drawMeter(QPainter& p, const QRectF& rect, float vuDb);
-    VUMeterScaleTable calibrationTable_;
+    VUMeterScaleTable singleScaleTable_;
+    VUMeterScaleTable leftScaleTable_;
+    VUMeterScaleTable rightScaleTable_;
 
     // Style-dependent parameters
     struct StyleParams {
