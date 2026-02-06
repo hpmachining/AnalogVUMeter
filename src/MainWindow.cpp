@@ -338,7 +338,7 @@ void MainWindow::onSkinSelected(QAction* action) {
     }
 
     skinManager_.setActiveSkinId(skinId);
-    meter_->setSkinPackage(loaded.package, loaded.singleScale, loaded.leftScale, loaded.rightScale);
+    meter_->setSkinPackage(loaded.package);
     meter_->setStyle(VUMeterStyle::Skin);
 }
 
@@ -370,7 +370,7 @@ void MainWindow::importSkin() {
     }
 
     skinManager_.setActiveSkinId(r.skinName);
-    meter_->setSkinPackage(loaded.package, loaded.singleScale, loaded.leftScale, loaded.rightScale);
+    meter_->setSkinPackage(loaded.package);
     meter_->setStyle(VUMeterStyle::Skin);
     populateStyleMenu();
 #endif

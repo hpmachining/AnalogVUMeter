@@ -1,7 +1,5 @@
 #include "SkinManager.h"
 
-#include "VUMeterScale.h"
-
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -13,105 +11,6 @@
 #include <algorithm>
 
 namespace {
-
-VUMeterCalibration defaultCalibration() {
-    VUMeterCalibration c;
-    c.minAngle = -47;
-    c.minLevel = -20;
-    c.zeroAngle = 20;
-    c.zeroLevel = 0;
-    c.maxAngle = 47;
-    c.maxLevel = 3;
-    c.pivotX = 310;
-    c.pivotY = 362;
-    c.mobilityNeg = 0.05;
-    c.mobilityPos = 0.10;
-    return c;
-}
-
-int jsonInt(const QJsonObject& o, const QString& key, int fallback, QStringList* warnings) {
-    const QJsonValue v = o.value(key);
-    if (!v.isUndefined() && v.isDouble())
-        return v.toInt();
-    if (!v.isUndefined() && warnings)
-        warnings->push_back(QStringLiteral("Invalid or missing int field: %1").arg(key));
-    return fallback;
-}
-
-qreal jsonReal(const QJsonObject& o, const QString& key, qreal fallback, QStringList* warnings) {
-    const QJsonValue v = o.value(key);
-    if (!v.isUndefined() && v.isDouble())
-        return v.toDouble();
-    if (!v.isUndefined() && warnings)
-        warnings->push_back(QStringLiteral("Invalid or missing real field: %1").arg(key));
-    return fallback;
-}
-
-QString jsonString(const QJsonObject& o, const QString& key, const QString& fallback, QStringList* warnings) {
-    const QJsonValue v = o.value(key);
-    if (!v.isUndefined() && v.isString())
-        return v.toString();
-    if (!v.isUndefined() && warnings)
-        warnings->push_back(QStringLiteral("Invalid or missing string field: %1").arg(key));
-    return fallback;
-}
-
-VUMeterCalibration parseCalibration(const QJsonObject& o, QStringList* warnings) {
-    VUMeterCalibration c = defaultCalibration();
-
-    c.minAngle = jsonInt(o, QStringLiteral("minAngle"), c.minAngle, warnings);
-    c.minLevel = jsonInt(o, QStringLiteral("minLevel"), c.minLevel, warnings);
-    c.zeroAngle = jsonInt(o, QStringLiteral("zeroAngle"), c.zeroAngle, warnings);
-    c.zeroLevel = jsonInt(o, QStringLiteral("zeroLevel"), c.zeroLevel, warnings);
-    c.maxAngle = jsonInt(o, QStringLiteral("maxAngle"), c.maxAngle, warnings);
-    c.maxLevel = jsonInt(o, QStringLiteral("maxLevel"), c.maxLevel, warnings);
-    c.pivotX = jsonInt(o, QStringLiteral("pivotX"), c.pivotX, warnings);
-    c.pivotY = jsonInt(o, QStringLiteral("pivotY"), c.pivotY, warnings);
-    c.mobilityNeg = jsonReal(o, QStringLiteral("mobilityNeg"), c.mobilityNeg, warnings);
-    c.mobilityPos = jsonReal(o, QStringLiteral("mobilityPos"), c.mobilityPos, warnings);
-
-    return c;
-}
-
-VUMeterScaleTable scaleTableFromCalibration(const VUMeterCalibration& c) {
-    return {{static_cast<float>(c.minLevel), static_cast<float>(c.minAngle)},
-            {static_cast<float>(c.zeroLevel), static_cast<float>(c.zeroAngle)},
-            {static_cast<float>(c.maxLevel), static_cast<float>(c.maxAngle)}};
-}
-
-VUMeterScaleTable parseScaleTable(const QJsonValue& v, const VUMeterCalibration& fallbackCalib, QStringList* warnings) {
-    if (!v.isArray()) {
-        if (!v.isUndefined() && warnings)
-            warnings->push_back(QStringLiteral("scaleTable is not an array; falling back to calibration triple"));
-        return scaleTableFromCalibration(fallbackCalib);
-    }
-
-    const QJsonArray a = v.toArray();
-    VUMeterScaleTable t;
-    t.reserve(a.size());
-
-    for (const QJsonValue& e : a) {
-        if (!e.isObject())
-            continue;
-        const QJsonObject o = e.toObject();
-
-        const QJsonValue levelV = o.value(QStringLiteral("level"));
-        const QJsonValue angleV = o.value(QStringLiteral("angle"));
-        if (!levelV.isDouble() || !angleV.isDouble())
-            continue;
-
-        t.push_back({static_cast<float>(levelV.toDouble()), static_cast<float>(angleV.toDouble())});
-    }
-
-    if (t.isEmpty()) {
-        if (warnings)
-            warnings->push_back(QStringLiteral("scaleTable had no valid entries; falling back to calibration triple"));
-        return scaleTableFromCalibration(fallbackCalib);
-    }
-
-    std::sort(t.begin(), t.end(), [](const auto& a0, const auto& a1) { return a0.first < a1.first; });
-    return t;
-}
 
 bool loadPixmap(QPixmap* out, const QString& absPath, QStringList* warnings) {
     if (!out)
@@ -129,30 +28,188 @@ bool loadPixmap(QPixmap* out, const QString& absPath, QStringList* warnings) {
     return true;
 }
 
-bool parseMeter(const QJsonObject& meterObj, const QDir& skinDir, VUMeterSkin* outSkin, VUMeterScaleTable* outScale,
-               QStringList* warnings) {
-    if (!outSkin || !outScale)
+bool isTopLevelFileName(const QString& rel) {
+    return !rel.contains('/') && !rel.contains('\\') && !rel.contains(QStringLiteral(".."));
+}
+
+bool requireString(const QJsonObject& o, const QString& key, QString* out, QString* errorOut) {
+    const QJsonValue v = o.value(key);
+    if (!v.isString()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Missing or invalid string field: %1").arg(key);
+        return false;
+    }
+    if (out)
+        *out = v.toString();
+    return true;
+}
+
+bool requireInt(const QJsonObject& o, const QString& key, int* out, QString* errorOut) {
+    const QJsonValue v = o.value(key);
+    if (!v.isDouble()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Missing or invalid int field: %1").arg(key);
+        return false;
+    }
+    if (out)
+        *out = v.toInt();
+    return true;
+}
+
+bool requireReal(const QJsonObject& o, const QString& key, qreal* out, QString* errorOut) {
+    const QJsonValue v = o.value(key);
+    if (!v.isDouble()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Missing or invalid real field: %1").arg(key);
+        return false;
+    }
+    if (out)
+        *out = v.toDouble();
+    return true;
+}
+
+bool parseCalibrationStrict(const QJsonObject& o, VUMeterCalibration* out, QString* errorOut) {
+    if (!out)
         return false;
 
-    const QJsonObject assets = meterObj.value(QStringLiteral("assets")).toObject();
-    const QString faceRel = jsonString(assets, QStringLiteral("face"), QString(), warnings);
-    const QString needleRel = jsonString(assets, QStringLiteral("needle"), QString(), warnings);
-    const QString capRel = jsonString(assets, QStringLiteral("cap"), QString(), warnings);
+    VUMeterCalibration c;
+    if (!requireInt(o, QStringLiteral("minAngle"), &c.minAngle, errorOut))
+        return false;
+    if (!requireInt(o, QStringLiteral("minLevel"), &c.minLevel, errorOut))
+        return false;
+    if (!requireInt(o, QStringLiteral("zeroAngle"), &c.zeroAngle, errorOut))
+        return false;
+    if (!requireInt(o, QStringLiteral("zeroLevel"), &c.zeroLevel, errorOut))
+        return false;
+    if (!requireInt(o, QStringLiteral("maxAngle"), &c.maxAngle, errorOut))
+        return false;
+    if (!requireInt(o, QStringLiteral("maxLevel"), &c.maxLevel, errorOut))
+        return false;
 
-    const QJsonObject calibObj = meterObj.value(QStringLiteral("calibration")).toObject();
-    outSkin->calib = parseCalibration(calibObj, warnings);
+    if (!requireInt(o, QStringLiteral("pivotX"), &c.pivotX, errorOut))
+        return false;
+    if (!requireInt(o, QStringLiteral("pivotY"), &c.pivotY, errorOut))
+        return false;
 
-    *outScale = parseScaleTable(meterObj.value(QStringLiteral("scaleTable")), outSkin->calib, warnings);
+    if (!requireReal(o, QStringLiteral("mobilityNegative"), &c.mobilityNegative, errorOut))
+        return false;
+    if (!requireReal(o, QStringLiteral("mobilityPositive"), &c.mobilityPositive, errorOut))
+        return false;
+
+    *out = c;
+    return true;
+}
+
+bool parseScaleTableStrict(const QJsonValue& v, VUMeterScaleTable* out, QString* errorOut) {
+    if (!out)
+        return false;
+    if (!v.isArray()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Missing or invalid scaleTable (must be an array)");
+        return false;
+    }
+
+    const QJsonArray a = v.toArray();
+    if (a.size() != 3) {
+        if (errorOut)
+            *errorOut = QStringLiteral("scaleTable must contain exactly 3 entries (min/zero/max)");
+        return false;
+    }
+
+    VUMeterScaleTable t;
+    t.reserve(a.size());
+    for (const QJsonValue& e : a) {
+        if (!e.isObject()) {
+            if (errorOut)
+                *errorOut = QStringLiteral("scaleTable contains a non-object entry");
+            return false;
+        }
+        const QJsonObject o = e.toObject();
+        const QJsonValue angleV = o.value(QStringLiteral("angle"));
+        const QJsonValue levelV = o.value(QStringLiteral("level"));
+        if (!angleV.isDouble() || !levelV.isDouble()) {
+            if (errorOut)
+                *errorOut = QStringLiteral("scaleTable entries must contain numeric angle and level");
+            return false;
+        }
+        t.push_back({static_cast<float>(levelV.toDouble()), static_cast<float>(angleV.toDouble())});
+    }
+
+    std::sort(t.begin(), t.end(), [](const auto& a0, const auto& a1) { return a0.first < a1.first; });
+    *out = t;
+    return true;
+}
+
+bool parseMeterStrict(const QJsonObject& meterObj,
+                      const QDir& skinDir,
+                      const QString& expectedFace,
+                      const QString& expectedNeedle,
+                      const QString& expectedCap,
+                      VUMeterSkin* out,
+                      QString* errorOut,
+                      QStringList* warnings) {
+    if (!out)
+        return false;
+
+    const QJsonValue assetsV = meterObj.value(QStringLiteral("assets"));
+    const QJsonValue calibV = meterObj.value(QStringLiteral("calibration"));
+    const QJsonValue scaleV = meterObj.value(QStringLiteral("scaleTable"));
+
+    if (!assetsV.isObject()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Missing or invalid assets object");
+        return false;
+    }
+    if (!calibV.isObject()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Missing or invalid calibration object");
+        return false;
+    }
+
+    QString faceRel, needleRel, capRel;
+    const QJsonObject assets = assetsV.toObject();
+    if (!requireString(assets, QStringLiteral("face"), &faceRel, errorOut))
+        return false;
+    if (!requireString(assets, QStringLiteral("needle"), &needleRel, errorOut))
+        return false;
+    if (!requireString(assets, QStringLiteral("cap"), &capRel, errorOut))
+        return false;
+
+    if (!isTopLevelFileName(faceRel) || !isTopLevelFileName(needleRel) || !isTopLevelFileName(capRel)) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Asset filenames must be top-level files (no subdirectories)");
+        return false;
+    }
+
+    if (faceRel != expectedFace || needleRel != expectedNeedle || capRel != expectedCap) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Unexpected asset filenames; expected %1, %2, %3")
+                            .arg(expectedFace, expectedNeedle, expectedCap);
+        return false;
+    }
+
+    VUMeterCalibration calib;
+    if (!parseCalibrationStrict(calibV.toObject(), &calib, errorOut))
+        return false;
+
+    VUMeterScaleTable scale;
+    if (!parseScaleTableStrict(scaleV, &scale, errorOut))
+        return false;
 
     const QString faceAbs = skinDir.filePath(faceRel);
     const QString needleAbs = skinDir.filePath(needleRel);
     const QString capAbs = skinDir.filePath(capRel);
 
-    const bool okFace = loadPixmap(&outSkin->face, faceAbs, warnings);
-    const bool okNeedle = loadPixmap(&outSkin->needle, needleAbs, warnings);
-    const bool okCap = loadPixmap(&outSkin->cap, capAbs, warnings);
+    if (!loadPixmap(&out->assets.face, faceAbs, warnings) || !loadPixmap(&out->assets.needle, needleAbs, warnings) ||
+        !loadPixmap(&out->assets.cap, capAbs, warnings)) {
+        if (errorOut)
+            *errorOut = QStringLiteral("Failed to load one or more required skin assets");
+        return false;
+    }
 
-    return okFace && okNeedle && okCap;
+    out->calibration = calib;
+    out->scaleTable = scale;
+    return true;
 }
 
 } // namespace
@@ -189,8 +246,17 @@ void SkinManager::scan() {
             continue;
 
         const QJsonObject rootObj = doc.object();
-        const QString name = rootObj.value(QStringLiteral("name")).toString(di.fileName());
-        const QString type = rootObj.value(QStringLiteral("type")).toString(QStringLiteral("single"));
+
+        const int schemaVersion = rootObj.value(QStringLiteral("schemaVersion")).toInt(0);
+        if (schemaVersion != 2)
+            continue;
+
+        const QString name = rootObj.value(QStringLiteral("name")).toString();
+        const QString type = rootObj.value(QStringLiteral("type")).toString();
+        if (name.isEmpty())
+            continue;
+        if (type != QStringLiteral("single") && type != QStringLiteral("stereo"))
+            continue;
 
         SkinInfo info;
         info.id = di.fileName();
@@ -228,57 +294,108 @@ SkinManager::LoadedSkin SkinManager::loadSkin(const QString& skinId) const {
     }
 
     const QJsonObject rootObj = doc.object();
-    const QString type = rootObj.value(QStringLiteral("type")).toString(QStringLiteral("single"));
-    const bool isStereo = (type == QStringLiteral("stereo"));
 
-    const QJsonObject meters = rootObj.value(QStringLiteral("meters")).toObject();
-    const QJsonObject singleObj = meters.value(QStringLiteral("single")).toObject();
-    const QJsonObject stereoObj = meters.value(QStringLiteral("stereo")).toObject();
-
-    VUMeterSkin singleSkin;
-    VUMeterSkin leftSkin;
-    VUMeterSkin rightSkin;
-
-    VUMeterScaleTable singleScale;
-    VUMeterScaleTable leftScale;
-    VUMeterScaleTable rightScale;
-
-    bool ok = true;
-
-    if (isStereo) {
-        const QJsonObject leftObj = stereoObj.value(QStringLiteral("left")).toObject();
-        const QJsonObject rightObj = stereoObj.value(QStringLiteral("right")).toObject();
-
-        ok = parseMeter(leftObj, skinDir, &leftSkin, &leftScale, &out.warnings) &&
-             parseMeter(rightObj, skinDir, &rightSkin, &rightScale, &out.warnings);
-
-        if (!singleObj.isEmpty()) {
-            parseMeter(singleObj, skinDir, &singleSkin, &singleScale, &out.warnings);
-        } else {
-            singleSkin = leftSkin;
-            singleScale = leftScale;
-        }
-    } else {
-        ok = parseMeter(singleObj, skinDir, &singleSkin, &singleScale, &out.warnings);
-        leftSkin = singleSkin;
-        rightSkin = singleSkin;
-        leftScale = singleScale;
-        rightScale = singleScale;
-    }
-
-    if (!ok) {
-        out.error = QStringLiteral("Failed to load one or more required skin assets");
+    // schemaVersion 2 is a clean break: no legacy schema support is provided.
+    const int schemaVersion = rootObj.value(QStringLiteral("schemaVersion")).toInt(0);
+    if (schemaVersion != 2) {
+        out.error = QStringLiteral("Unsupported schemaVersion (expected 2)");
         return out;
     }
 
-    out.package.isStereo = isStereo;
-    out.package.single = singleSkin;
-    out.package.left = leftSkin;
-    out.package.right = rightSkin;
+    const QString type = rootObj.value(QStringLiteral("type")).toString();
+    if (type != QStringLiteral("single") && type != QStringLiteral("stereo")) {
+        out.error = QStringLiteral("Invalid skin type (expected 'single' or 'stereo')");
+        return out;
+    }
 
-    out.singleScale = singleScale;
-    out.leftScale = leftScale;
-    out.rightScale = rightScale;
+    const QString name = rootObj.value(QStringLiteral("name")).toString();
+    const QString importedFrom = rootObj.value(QStringLiteral("importedFrom")).toString();
+    if (name.isEmpty()) {
+        out.error = QStringLiteral("Missing or invalid name");
+        return out;
+    }
+    if (importedFrom.isEmpty()) {
+        out.error = QStringLiteral("Missing or invalid importedFrom");
+        return out;
+    }
+
+    const QJsonValue metersV = rootObj.value(QStringLiteral("meters"));
+    if (!metersV.isObject()) {
+        out.error = QStringLiteral("Missing or invalid meters object");
+        return out;
+    }
+    const QJsonObject metersObj = metersV.toObject();
+
+    VUSkinPackage pkg;
+    pkg.name = name;
+    pkg.importedFrom = importedFrom;
+
+    QString parseError;
+
+    if (type == QStringLiteral("single")) {
+        if (metersObj.size() != 1 || !metersObj.contains(QStringLiteral("vu"))) {
+            out.error = QStringLiteral("Single skin must contain exactly one meter entry: meters.vu");
+            return out;
+        }
+        const QJsonValue vuV = metersObj.value(QStringLiteral("vu"));
+        if (!vuV.isObject()) {
+            out.error = QStringLiteral("Single skin must contain meters.vu");
+            return out;
+        }
+        VUMeterSkin vu;
+        if (!parseMeterStrict(vuV.toObject(),
+                              skinDir,
+                              QStringLiteral("face.png"),
+                              QStringLiteral("needle.png"),
+                              QStringLiteral("cap.png"),
+                              &vu,
+                              &parseError,
+                              &out.warnings)) {
+            out.error = parseError;
+            return out;
+        }
+        pkg.meters = VUSkinSingleMeters{vu};
+    } else {
+        if (metersObj.size() != 2 || !metersObj.contains(QStringLiteral("left")) || !metersObj.contains(QStringLiteral("right"))) {
+            out.error = QStringLiteral("Stereo skin must contain exactly two meter entries: meters.left and meters.right");
+            return out;
+        }
+        const QJsonValue leftV = metersObj.value(QStringLiteral("left"));
+        const QJsonValue rightV = metersObj.value(QStringLiteral("right"));
+        if (!leftV.isObject() || !rightV.isObject()) {
+            out.error = QStringLiteral("Stereo skin must contain meters.left and meters.right");
+            return out;
+        }
+
+        VUMeterSkin left;
+        VUMeterSkin right;
+        if (!parseMeterStrict(leftV.toObject(),
+                              skinDir,
+                              QStringLiteral("L_face.png"),
+                              QStringLiteral("L_needle.png"),
+                              QStringLiteral("L_cap.png"),
+                              &left,
+                              &parseError,
+                              &out.warnings)) {
+            out.error = parseError;
+            return out;
+        }
+        if (!parseMeterStrict(rightV.toObject(),
+                              skinDir,
+                              QStringLiteral("R_face.png"),
+                              QStringLiteral("R_needle.png"),
+                              QStringLiteral("R_cap.png"),
+                              &right,
+                              &parseError,
+                              &out.warnings)) {
+            out.error = parseError;
+            return out;
+        }
+
+        pkg.meters = VUSkinStereoMeters{left, right};
+    }
+
+    out.package = pkg;
 
     out.ok = true;
     return out;

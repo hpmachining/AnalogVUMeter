@@ -21,14 +21,8 @@ static QPointF polarFromBottomPivot(const QPointF& pivot, float radius, float th
     return QPointF(pivot.x() + radius * sx, pivot.y() - radius * cy);
 }
 
-void StereoVUMeterWidget::setSkinPackage(const VUSkinPackage& skin,
-                                        const VUMeterScaleTable& singleScale,
-                                        const VUMeterScaleTable& leftScale,
-                                        const VUMeterScaleTable& rightScale) {
+void StereoVUMeterWidget::setSkinPackage(const VUSkinPackage& skin) {
     skin_ = skin;
-    singleScaleTable_ = singleScale;
-    leftScaleTable_ = leftScale;
-    rightScaleTable_ = rightScale;
     update();
 }
 
@@ -157,11 +151,19 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
 
     // Skin mode uses the image's aspect ratio
     if (style_ == VUMeterStyle::Skin) {
-        aspect = qreal(skin_.single.face.width()) / qreal(skin_.single.face.height());
+        const VUMeterSkin* meter = nullptr;
+        if (std::holds_alternative<VUSkinSingleMeters>(skin_.meters)) {
+            meter = &std::get<VUSkinSingleMeters>(skin_.meters).vu;
+        } else {
+            meter = &std::get<VUSkinStereoMeters>(skin_.meters).left;
+        }
+
+        aspect = qreal(meter->assets.face.width()) / qreal(meter->assets.face.height());
     }
 
     const qreal gap =
-        (style_ == VUMeterStyle::Skin && skin_.isStereo) ? 0.0 : std::max<qreal>(16.0, inner.width() * 0.03);
+        (style_ == VUMeterStyle::Skin && std::holds_alternative<VUSkinStereoMeters>(skin_.meters)) ? 0.0
+                                                                                                    : std::max<qreal>(16.0, inner.width() * 0.03);
 
     qreal meterW = (inner.width() - gap) / 2.0;
     qreal meterH = meterW / aspect;
@@ -193,31 +195,41 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
         // --- Skin mode ---
         p.fillRect(r, Qt::black);
 
-        // Draw face images
-        p.drawPixmap(leftRect, skin_.left.face, skin_.left.face.rect());
-        p.drawPixmap(rightRect, skin_.right.face, skin_.right.face.rect());
+        const VUMeterSkin* meters[2] = {nullptr, nullptr};
+        if (std::holds_alternative<VUSkinSingleMeters>(skin_.meters)) {
+            const VUMeterSkin& m = std::get<VUSkinSingleMeters>(skin_.meters).vu;
+            meters[0] = &m;
+            meters[1] = &m;
+        } else {
+            const VUSkinStereoMeters& ms = std::get<VUSkinStereoMeters>(skin_.meters);
+            meters[0] = &ms.left;
+            meters[1] = &ms.right;
+        }
 
-        // Draw needles + caps
-        drawMeterImageOnly(p, leftRect, left_, skin_.left, leftScaleTable_);
-        drawMeterImageOnly(p, rightRect, right_, skin_.right, rightScaleTable_);
+        const QRectF rects[2] = {leftRect, rightRect};
+        const float vus[2] = {left_, right_};
+
+        for (int i = 0; i < 2; ++i) {
+            p.drawPixmap(rects[i], meters[i]->assets.face, meters[i]->assets.face.rect());
+            drawMeterImageOnly(p, rects[i], vus[i], *meters[i]);
+        }
     }
 }
 
 void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p,
                                              const QRectF& rect,
                                              float vuDb,
-                                             VUMeterSkin& skin,
-                                             const VUMeterScaleTable& scaleTable) {
+                                             const VUMeterSkin& skin) {
     p.save();
 
     // --- Compute pivot in widget coordinates ---
-    const qreal scaleX = rect.width() / skin.face.width();
-    const qreal scaleY = rect.height() / skin.face.height();
+    const qreal scaleX = rect.width() / skin.assets.face.width();
+    const qreal scaleY = rect.height() / skin.assets.face.height();
 
-    const QPointF pivot(rect.left() + skin.calib.pivotX * scaleX, rect.top() + skin.calib.pivotY * scaleY);
+    const QPointF pivot(rect.left() + skin.calibration.pivotX * scaleX, rect.top() + skin.calibration.pivotY * scaleY);
 
     // --- Compute rotation angle ---
-    const float angleDeg = vuToAngleDeg(vuDb, scaleTable);
+    const float angleDeg = vuToAngleDeg(vuDb, skin.scaleTable);
 
     // --- Rotate ONLY the needle ---
     {
@@ -229,13 +241,13 @@ void StereoVUMeterWidget::drawMeterImageOnly(QPainter& p,
         p.translate(-pivot);
 
         // Draw needle exactly as before (same rect)
-        p.drawPixmap(rect, skin.needle, skin.needle.rect());
+        p.drawPixmap(rect, skin.assets.needle, skin.assets.needle.rect());
 
         p.restore(); // <-- restores painter so cap is NOT rotated
     }
 
     // --- Draw cap overlay (no rotation) ---
-    p.drawPixmap(rect, skin.cap, skin.cap.rect());
+    p.drawPixmap(rect, skin.assets.cap, skin.assets.cap.rect());
 
     p.restore();
 }
@@ -464,36 +476,32 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
 }
 
 void StereoVUMeterWidget::loadDefaultSkin() {
-    // Hard-coded single meter skin for now
-    skin_.isStereo = false;
-
     VUMeterSkin s;
 
-    s.face.load(":/images/model_702w/0.png");
-    s.needle.load(":/images/model_702w/1.png");
-    s.cap.load(":/images/model_702w/2.png");
+    s.assets.face.load(":/images/model_702w/0.png");
+    s.assets.needle.load(":/images/model_702w/1.png");
+    s.assets.cap.load(":/images/model_702w/2.png");
 
-    s.calib.minAngle = -47;
-    s.calib.minLevel = -20;
-    s.calib.zeroAngle = 20;
-    s.calib.zeroLevel = 0;
-    s.calib.maxAngle = 47;
-    s.calib.maxLevel = 3;
+    // Keep the built-in skin calibration consistent with the built-in scale table.
+    // (The skin's scale table remains authoritative for needle angle mapping.)
+    s.calibration.minAngle = -47;
+    s.calibration.minLevel = -20;
+    s.calibration.zeroAngle = 18;
+    s.calibration.zeroLevel = 0;
+    s.calibration.maxAngle = 47;
+    s.calibration.maxLevel = 3;
 
-    s.calib.pivotX = 310;
-    s.calib.pivotY = 362;
+    s.calibration.pivotX = 310;
+    s.calibration.pivotY = 362;
 
-    s.calib.mobilityNeg = 0.05;
-    s.calib.mobilityPos = 0.10;
+    s.calibration.mobilityNegative = 0.05;
+    s.calibration.mobilityPositive = 0.10;
 
-    // Store single meter
-    skin_.single = s;
+    s.scaleTable = builtInDefaultScaleTable();
 
-    // Duplicate into stereo (your rule)
-    skin_.left = s;
-    skin_.right = s;
+    skin_.name = QStringLiteral("Default");
+    skin_.importedFrom.clear();
+    skin_.meters = VUSkinSingleMeters{s};
 
     singleScaleTable_ = builtInDefaultScaleTable();
-    leftScaleTable_ = singleScaleTable_;
-    rightScaleTable_ = singleScaleTable_;
 }

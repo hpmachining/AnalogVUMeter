@@ -238,8 +238,8 @@ VUMeterCalibration defaultCalibration() {
     c.maxLevel = 3;
     c.pivotX = 310;
     c.pivotY = 362;
-    c.mobilityNeg = 0.05;
-    c.mobilityPos = 0.10;
+    c.mobilityNegative = 0.05;
+    c.mobilityPositive = 0.10;
     return c;
 }
 
@@ -255,8 +255,8 @@ VUMeterCalibration parseCalibrationGroup(QSettings& ini, const QString& groupNam
     c.maxLevel = readIntAny(ini, {"MaxLevel"}, c.maxLevel, warnings);
     c.pivotX = readIntAny(ini, {"PivotPointX"}, c.pivotX, warnings);
     c.pivotY = readIntAny(ini, {"PivotPointY"}, c.pivotY, warnings);
-    c.mobilityNeg = readRealAny(ini, {"MobilityNegative"}, c.mobilityNeg, warnings);
-    c.mobilityPos = readRealAny(ini, {"MobilityPositive"}, c.mobilityPos, warnings);
+    c.mobilityNegative = readRealAny(ini, {"MobilityNegative"}, c.mobilityNegative, warnings);
+    c.mobilityPositive = readRealAny(ini, {"MobilityPositive"}, c.mobilityPositive, warnings);
     ini.endGroup();
 
     return c;
@@ -280,8 +280,8 @@ QJsonObject calibrationToJson(const VUMeterCalibration& c) {
     o.insert(QStringLiteral("maxLevel"), c.maxLevel);
     o.insert(QStringLiteral("pivotX"), c.pivotX);
     o.insert(QStringLiteral("pivotY"), c.pivotY);
-    o.insert(QStringLiteral("mobilityNeg"), c.mobilityNeg);
-    o.insert(QStringLiteral("mobilityPos"), c.mobilityPos);
+    o.insert(QStringLiteral("mobilityNegative"), c.mobilityNegative);
+    o.insert(QStringLiteral("mobilityPositive"), c.mobilityPositive);
     return o;
 }
 
@@ -289,8 +289,8 @@ QJsonArray scaleTableToJson(const VUMeterScaleTable& t) {
     QJsonArray a;
     for (const auto& p : t) {
         QJsonObject o;
-        o.insert(QStringLiteral("level"), p.first);
         o.insert(QStringLiteral("angle"), p.second);
+        o.insert(QStringLiteral("level"), p.first);
         a.push_back(o);
     }
     return a;
@@ -366,6 +366,7 @@ SkinImporter::ImportResult SkinImporter::importAimpZip(const QString& zipFilePat
                            requireFile(QStringLiteral("1.png"), &s1) &&
                            requireFile(QStringLiteral("2.png"), &s2);
 
+    // Stereo detection is based on L_/R_ filename prefixes (case-insensitive).
     const bool hasStereo = requireFile(QStringLiteral("l_0.png"), &l0) &&
                            requireFile(QStringLiteral("l_1.png"), &l1) &&
                            requireFile(QStringLiteral("l_2.png"), &l2) &&
@@ -436,74 +437,44 @@ SkinImporter::ImportResult SkinImporter::importAimpZip(const QString& zipFilePat
         return result;
     }
 
-    const QString singleDir = skinDir.filePath(QStringLiteral("single"));
-    const QString stereoLeftDir = skinDir.filePath(QStringLiteral("stereo/left"));
-    const QString stereoRightDir = skinDir.filePath(QStringLiteral("stereo/right"));
-
-    if (!QDir().mkpath(singleDir) || !QDir().mkpath(stereoLeftDir) || !QDir().mkpath(stereoRightDir)) {
-        result.error = QStringLiteral("Failed to create skin subdirectories");
-        return result;
-    }
-
     QString copyError;
 
-    auto copySingleFrom = [&](const QString& faceName, const QString& needleName, const QString& capName) -> bool {
-        if (!tryCopyFile(aimpRoot.filePath(faceName), QDir(singleDir).filePath(QStringLiteral("face.png")), &copyError))
-            return false;
-        if (!tryCopyFile(aimpRoot.filePath(needleName), QDir(singleDir).filePath(QStringLiteral("needle.png")), &copyError))
-            return false;
-        if (!tryCopyFile(aimpRoot.filePath(capName), QDir(singleDir).filePath(QStringLiteral("cap.png")), &copyError))
-            return false;
-        return true;
-    };
-
-    auto copyStereoSide = [&](const QString& faceName, const QString& needleName, const QString& capName, const QString& sideDir) -> bool {
-        if (!tryCopyFile(aimpRoot.filePath(faceName), QDir(sideDir).filePath(QStringLiteral("face.png")), &copyError))
-            return false;
-        if (!tryCopyFile(aimpRoot.filePath(needleName), QDir(sideDir).filePath(QStringLiteral("needle.png")), &copyError))
-            return false;
-        if (!tryCopyFile(aimpRoot.filePath(capName), QDir(sideDir).filePath(QStringLiteral("cap.png")), &copyError))
-            return false;
-        return true;
-    };
-
     if (isStereo) {
-        if (!copyStereoSide(l0, l1, l2, stereoLeftDir) || !copyStereoSide(r0, r1, r2, stereoRightDir)) {
-            result.error = copyError;
-            return result;
-        }
-        if (!copySingleFrom(l0, l1, l2)) {
+        if (!tryCopyFile(aimpRoot.filePath(l0), skinDir.filePath(QStringLiteral("L_face.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(l1), skinDir.filePath(QStringLiteral("L_needle.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(l2), skinDir.filePath(QStringLiteral("L_cap.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(r0), skinDir.filePath(QStringLiteral("R_face.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(r1), skinDir.filePath(QStringLiteral("R_needle.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(r2), skinDir.filePath(QStringLiteral("R_cap.png")), &copyError)) {
             result.error = copyError;
             return result;
         }
     } else {
-        if (!copySingleFrom(s0, s1, s2)) {
-            result.error = copyError;
-            return result;
-        }
-        if (!copyStereoSide(s0, s1, s2, stereoLeftDir) || !copyStereoSide(s0, s1, s2, stereoRightDir)) {
+        if (!tryCopyFile(aimpRoot.filePath(s0), skinDir.filePath(QStringLiteral("face.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(s1), skinDir.filePath(QStringLiteral("needle.png")), &copyError) ||
+            !tryCopyFile(aimpRoot.filePath(s2), skinDir.filePath(QStringLiteral("cap.png")), &copyError)) {
             result.error = copyError;
             return result;
         }
     }
 
+    // schemaVersion 2: the on-disk JSON is explicit and minimal.
+    // - single skins: meters.vu
+    // - stereo skins: meters.left + meters.right
+    // No mirroring, no duplication, no subdirectories.
     QJsonObject meters;
-
-    meters.insert(QStringLiteral("single"),
-                  meterJson(QStringLiteral("single/face.png"), QStringLiteral("single/needle.png"), QStringLiteral("single/cap.png"),
-                           singleCalib, singleTable));
-
-    QJsonObject stereo;
-    stereo.insert(QStringLiteral("left"),
-                  meterJson(QStringLiteral("stereo/left/face.png"), QStringLiteral("stereo/left/needle.png"), QStringLiteral("stereo/left/cap.png"),
-                           leftCalib, leftTable));
-    stereo.insert(QStringLiteral("right"),
-                  meterJson(QStringLiteral("stereo/right/face.png"), QStringLiteral("stereo/right/needle.png"), QStringLiteral("stereo/right/cap.png"),
-                           rightCalib, rightTable));
-    meters.insert(QStringLiteral("stereo"), stereo);
+    if (isStereo) {
+        meters.insert(QStringLiteral("left"),
+                      meterJson(QStringLiteral("L_face.png"), QStringLiteral("L_needle.png"), QStringLiteral("L_cap.png"), leftCalib, leftTable));
+        meters.insert(QStringLiteral("right"),
+                      meterJson(QStringLiteral("R_face.png"), QStringLiteral("R_needle.png"), QStringLiteral("R_cap.png"), rightCalib, rightTable));
+    } else {
+        meters.insert(QStringLiteral("vu"),
+                      meterJson(QStringLiteral("face.png"), QStringLiteral("needle.png"), QStringLiteral("cap.png"), singleCalib, singleTable));
+    }
 
     QJsonObject root;
-    root.insert(QStringLiteral("schemaVersion"), 1);
+    root.insert(QStringLiteral("schemaVersion"), 2);
     root.insert(QStringLiteral("name"), finalDirName);
     root.insert(QStringLiteral("type"), isStereo ? QStringLiteral("stereo") : QStringLiteral("single"));
     root.insert(QStringLiteral("meters"), meters);

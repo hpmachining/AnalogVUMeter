@@ -1,11 +1,12 @@
 #pragma once
 
-#include <QtGlobal>
 #include <QPixmap>
+#include <QtGlobal>
 
-// Skin data types are intentionally lightweight and data-focused.
-// The widget owns the built-in default skin and is responsible for drawing.
-// TODO: Future work: load skin packages from disk/resources.
+#include "VUMeterScale.h"
+
+#include <QString>
+#include <variant>
 
 struct VUMeterCalibration {
     int minAngle;
@@ -18,25 +19,38 @@ struct VUMeterCalibration {
     int pivotX;
     int pivotY;
 
-    qreal mobilityNeg;
-    qreal mobilityPos;
+    qreal mobilityNegative;
+    qreal mobilityPositive;
 };
 
-struct VUMeterSkin {
+struct VUMeterAssets {
     QPixmap face;
     QPixmap needle;
     QPixmap cap;
+};
 
-    VUMeterCalibration calib;
+struct VUMeterSkin {
+    VUMeterAssets assets;
+    VUMeterCalibration calibration;
+    VUMeterScaleTable scaleTable;
+};
+
+struct VUSkinSingleMeters {
+    VUMeterSkin vu;
+};
+
+struct VUSkinStereoMeters {
+    VUMeterSkin left;
+    VUMeterSkin right;
 };
 
 struct VUSkinPackage {
-    bool isStereo = false; // false = single meter, true = double meter
+    QString name;
+    QString importedFrom;
 
-    // Single meter
-    VUMeterSkin single;
-
-    // Stereo meters
-    VUMeterSkin left;
-    VUMeterSkin right;
+    // schemaVersion=2 skin runtime model:
+    // - single skins contain exactly one meter definition ("vu")
+    // - stereo skins contain exactly two independent meter definitions ("left" / "right")
+    // - scale tables are owned per meter; no mirroring or inferred duplication is permitted
+    std::variant<VUSkinSingleMeters, VUSkinStereoMeters> meters;
 };

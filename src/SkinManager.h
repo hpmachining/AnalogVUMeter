@@ -1,6 +1,5 @@
 #pragma once
 
-#include "VUMeterScale.h"
 #include "VUMeterSkin.h"
 
 #include <QList>
@@ -22,9 +21,6 @@ class SkinManager {
         QStringList warnings;
 
         VUSkinPackage package;
-        VUMeterScaleTable singleScale;
-        VUMeterScaleTable leftScale;
-        VUMeterScaleTable rightScale;
     };
 
     SkinManager();
