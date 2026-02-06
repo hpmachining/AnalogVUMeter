@@ -110,9 +110,9 @@ bool parseScaleTableStrict(const QJsonValue& v, VUMeterScaleTable* out, QString*
     }
 
     const QJsonArray a = v.toArray();
-    if (a.size() != 3) {
+    if (a.size() < 3) {
         if (errorOut)
-            *errorOut = QStringLiteral("scaleTable must contain exactly 3 entries (min/zero/max)");
+            *errorOut = QStringLiteral("scaleTable must contain at least 3 entries (min/zero/max)");
         return false;
     }
 
