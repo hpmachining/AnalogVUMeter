@@ -6,10 +6,10 @@ pkgdesc="A desktop application that visually replicates a classic analog stereo 
 arch=('x86_64')
 url="https://github.com/hpmachining/AnalogVUMeter"
 license=('MIT')
-depends=('qt6-base' 'pulseaudio' 'libzip')
+depends=('qt6-base' 'libpulse' 'libzip')
 makedepends=('cmake' 'pkgconf')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/hpmachining/AnalogVUMeter/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('1eed77f2577a8c0efd9b7f3a834330aaa99ca1719e8b11b170beadc5338e0e8b')
 
 build() {
     cd "AnalogVUMeter-$pkgver"
