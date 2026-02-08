@@ -130,19 +130,23 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
     // Default aspect ratio for vector-drawn styles
     qreal aspect = 1.75;
 
-    // Skin mode uses the image's aspect ratio
+    // Default gap for vector-drawn styles
+    qreal gap = std::max<qreal>(16.0, inner.width() * 0.03);
+    
+    // Skin mode uses the image's aspect ratio and zero gap for stereo packages
     if (style_ == VUMeterStyle::Skin) {
         const VUMeterSkin* meter = nullptr;
         if (std::holds_alternative<VUSkinSingleMeters>(skin_.meters)) {
             meter = &std::get<VUSkinSingleMeters>(skin_.meters).vu;
         } else {
             meter = &std::get<VUSkinStereoMeters>(skin_.meters).left;
+            gap = 0.0; // Stereo packages have meters designed to be placed together
         }
 
         aspect = qreal(meter->assets.face.width()) / qreal(meter->assets.face.height());
+        
     }
-
-    const qreal gap = std::max<qreal>(16.0, inner.width() * 0.03);
+    
 
     qreal meterW = (inner.width() - gap) / 2.0;
     qreal meterH = meterW / aspect;
