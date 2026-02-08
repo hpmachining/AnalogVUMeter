@@ -1,4 +1,4 @@
-# AnalogVUMeterQt
+# AnalogVUMeter
 
 A cross-platform desktop application that visually replicates a classic analog stereo VU meter (needle-style) using Qt 6 custom painting and native audio APIs.
 
@@ -42,7 +42,7 @@ The simplest method on Arch Linux is to use the provided PKGBUILD, which handles
 
 ```bash
 # Create a clean build directory
-mkdir analogvumeter-qt-build && cd analogvumeter-qt-build
+mkdir analogvumeter-build && cd analogvumeter-build
 
 # Download PKGBUILD from repository
 curl -O https://raw.githubusercontent.com/hpmachining/AnalogVUMeter/main/PKGBUILD
@@ -51,7 +51,7 @@ curl -O https://raw.githubusercontent.com/hpmachining/AnalogVUMeter/main/PKGBUIL
 makepkg -s
 
 # Install the package
-sudo pacman -U analogvumeter-qt-*.pkg.tar.zst
+sudo pacman -U analogvumeter-*.pkg.tar.zst
 ```
 
 ### Installing Dependencies
@@ -76,7 +76,7 @@ sudo dnf install -y @development-tools cmake pkgconf-pkg-config \
 #### Arch Linux
 
 ```bash
-sudo pacman -S base-devel cmake pkgconf qt6-base pulseaudio libzip
+sudo pacman -S base-devel cmake pkgconf qt6-base libpulse libzip
 ```
 
 #### macOS
@@ -174,9 +174,9 @@ The meter displays audio levels using a classic VU meter scale:
 
 ### Linux
 
-- Uses PulseAudio for audio capture with full PipeWire compatibility
-- System output monitoring works out-of-the-box via PulseAudio sink monitors
-- No additional configuration required for capturing system audio
+- Uses the PulseAudio client library (`libpulse`) for audio capture
+- System audio monitoring is available when a PulseAudio‑compatible server is running (PipeWire‑Pulse or PulseAudio)
+- No additional configuration is required on systems using PipeWire‑Pulse or PulseAudio
 
 ### macOS
 

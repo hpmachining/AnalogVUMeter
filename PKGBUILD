@@ -6,10 +6,14 @@ pkgdesc="A desktop application that visually replicates a classic analog stereo 
 arch=('x86_64')
 url="https://github.com/hpmachining/AnalogVUMeter"
 license=('MIT')
-depends=('qt6-base' 'pulseaudio' 'libzip')
+depends=('qt6-base' 'libpulse' 'libzip')
 makedepends=('cmake' 'pkgconf')
+optdepends=(
+    'pipewire-pulse: PulseAudio-compatible server for audio monitoring'
+    'pulseaudio: PulseAudio server for audio monitoring'
+)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/hpmachining/AnalogVUMeter/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('95ef0a6e7042e5c85daed060b1ebabb2e1b69920c264e3f1db73f43639605ded')
 
 build() {
     cd "AnalogVUMeter-$pkgver"
@@ -24,4 +28,4 @@ package() {
     install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
 }
 
-# vim:set ts=2 sw=2 et:
+# vim:set ts=4 sw=4 et:
