@@ -13,7 +13,7 @@ optdepends=(
     'pulseaudio: PulseAudio server for audio monitoring'
 )
 source=("$pkgname-$pkgver.tar.gz::https://github.com/hpmachining/AnalogVUMeter/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('95ef0a6e7042e5c85daed060b1ebabb2e1b69920c264e3f1db73f43639605ded')
+sha256sums=('17210a600bd2c2cc13f769696016e8a76be17e0d3abd18d9e8e5891762b461ed')
 
 build() {
     cd "AnalogVUMeter-$pkgver"
