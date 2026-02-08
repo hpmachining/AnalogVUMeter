@@ -14,7 +14,6 @@ class QString;
 // VU Meter visual styles
 enum class VUMeterStyle {
     Original, // Current/default style
-    Sony,     // Larger text, Sony-inspired
     Vintage,  // Warm vintage colors
     Modern,   // Clean modern look
     Black,    // Modern style with inverted black/white colors
@@ -41,11 +40,9 @@ class StereoVUMeterWidget final : public QWidget {
     float left_ = -20.0f;
     float right_ = -20.0f;
     VUMeterStyle style_ = VUMeterStyle::Skin;
-    QString sonyFontFamily_; // Font family name for SONY logo
 
-    //QPixmap meterFace_;
-    void drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb, const VUMeterSkin& skin);
     void drawMeter(QPainter& p, const QRectF& rect, float vuDb);
+    void drawMeterImageOnly(QPainter& p, const QRectF& rect, float vuDb, const VUMeterSkin& skin);
     VUMeterScaleTable singleScaleTable_;
 
     // Style-dependent parameters

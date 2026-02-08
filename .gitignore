@@ -1,10 +1,12 @@
 *
 
 !.gitignore
+!.gitattributes
 !LICENSE
 !README.md
 !CMakeLists.txt
 !.clang-format
+!PKGBUILD
 
 !src/
 !src/**

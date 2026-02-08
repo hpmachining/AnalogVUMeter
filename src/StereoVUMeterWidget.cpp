@@ -36,14 +36,6 @@ StereoVUMeterWidget::StereoVUMeterWidget(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_NoSystemBackground);
 
     loadDefaultSkin();
-    // Load the SONY logo font from resources
-    int fontId = QFontDatabase::addApplicationFont(":/fonts/clarendon_regular.otf");
-    if (fontId != -1) {
-        QStringList families = QFontDatabase::applicationFontFamilies(fontId);
-        if (!families.isEmpty()) {
-            sonyFontFamily_ = families.first();
-        }
-    }
 }
 
 void StereoVUMeterWidget::setStyle(VUMeterStyle style) {
@@ -67,17 +59,6 @@ StereoVUMeterWidget::StyleParams StereoVUMeterWidget::getStyleParams() const {
         params.faceColorBottom = QColor(236, 230, 200);
         params.labelColor = QColor(0, 0, 0, 220);
         params.redZoneColor = QColor(170, 20, 20);
-        break;
-
-    case VUMeterStyle::Sony:
-        params.labelSizeFactor = 0.065;
-        params.vuTextSizeFactor = 0.095;
-        params.vuTextRadius = 0.85;
-        params.singleVuText = true;
-        params.faceColorTop = QColor(235, 230, 200);
-        params.faceColorBottom = QColor(220, 215, 185);
-        params.labelColor = QColor(0, 0, 0, 230);
-        params.redZoneColor = QColor(140, 20, 20);
         break;
 
     case VUMeterStyle::Vintage:
@@ -161,9 +142,7 @@ void StereoVUMeterWidget::paintEvent(QPaintEvent*) {
         aspect = qreal(meter->assets.face.width()) / qreal(meter->assets.face.height());
     }
 
-    const qreal gap =
-        (style_ == VUMeterStyle::Skin && std::holds_alternative<VUSkinStereoMeters>(skin_.meters)) ? 0.0
-                                                                                                    : std::max<qreal>(16.0, inner.width() * 0.03);
+    const qreal gap = std::max<qreal>(16.0, inner.width() * 0.03);
 
     qreal meterW = (inner.width() - gap) / 2.0;
     qreal meterH = meterW / aspect;
@@ -443,31 +422,6 @@ void StereoVUMeterWidget::drawMeter(QPainter& p, const QRectF& rect, float vuDb)
         drawVuTextAt(33.0f, sp.vuTextRadius, vuFontSize);
     }
 
-    // --- SONY logo for Sony style ---
-    if (style_ == VUMeterStyle::Sony && !sonyFontFamily_.isEmpty()) {
-        p.save();
-        
-        QFont sonyFont(sonyFontFamily_);
-        sonyFont.setPointSizeF(rect.height() * 0.075);  // Adjust size as needed
-        sonyFont.setBold(false);
-        p.setFont(sonyFont);
-        p.setPen(sp.labelColor);
-        
-        // Position in top-left corner of face with some padding
-        const qreal padding = face.width() * 0.04;
-        const qreal sonyX = face.left() + padding;
-        const qreal sonyY = face.top() + padding;
-        
-        // Apply vertical compression (0.80 = 20% shorter height)
-        p.translate(sonyX, sonyY);
-        p.scale(1.0, 0.80);
-        
-        // Draw at origin since we've already translated
-        const QRectF sonyRect(0, 0, face.width() * 0.25, face.height() * 0.15 / 0.80);
-        p.drawText(sonyRect, Qt::AlignLeft | Qt::AlignTop, "SONY");
-        
-        p.restore();
-    }
 
     // --- Pivot cap (no longer needed since needle is clipped, but keep the line) ---
     const qreal capR = std::max<qreal>(10.0, rect.width() * 0.04);

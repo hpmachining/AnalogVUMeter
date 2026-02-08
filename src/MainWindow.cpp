@@ -110,10 +110,15 @@ void MainWindow::showAbout() {
                        tr("About Analog VU Meter"),
                        tr("<h3>Analog VU Meter</h3>"
                           "<p><b>Version %1</b></p>"
-                          "<p>A real‑time audio level meter with classic analog styling, "
-                          "developed with community contributions.</p>"
-                          "<p>© 2026 Paul Hentschel — MIT License<br>"
-                          "Notable contributor: jansenkarl</p>")
+                          "<p>A real-time audio level meter with classic analog styling.</p>"
+                          "<p style='margin-top:12px;'><b>Credits</b></p>"
+                          "<p style='margin-left:10px; margin-top:4px;'>"
+                          "Developer: Paul Hentschel<br>"
+                          "macOS Port: jansenkarl<br>"
+                          "Default Meter Skin: © Ernest Turner</p>"
+                          "<p style='margin-top:12px;'>© 2026 Paul Hentschel<br>"
+                          "Licensed under the MIT License</p>"
+                        )
                            .arg(APP_VERSION));
 }
 
@@ -245,7 +250,6 @@ void MainWindow::populateStyleMenu() {
 
     const VectorStyleInfo vectorStyles[] = {
         {tr("Classic"), VUMeterStyle::Original},
-        {tr("Sony"), VUMeterStyle::Sony},
         {tr("Vintage"), VUMeterStyle::Vintage},
         {tr("Modern"), VUMeterStyle::Modern},
         {tr("Black"), VUMeterStyle::Black},

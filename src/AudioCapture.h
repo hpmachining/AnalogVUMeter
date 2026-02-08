@@ -37,7 +37,7 @@ class AudioCapture final : public QObject {
 
     struct Options final {
         int deviceIndex = -1; // unused in libpulse path, retained for compatibility
-        double referenceDbfs = -18.0;
+        double referenceDbfs = -14.0;
         bool referenceDbfsOverride = false;
         int sampleRate = 48000;
         unsigned long framesPerBuffer = 512;

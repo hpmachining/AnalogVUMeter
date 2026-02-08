@@ -1,0 +1,4 @@
+PKGBUILD export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+.clang-format export-ignore
