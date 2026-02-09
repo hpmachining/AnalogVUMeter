@@ -41,6 +41,10 @@ A cross-platform desktop application that visually replicates a classic analog s
 The simplest method on Arch Linux is to use the provided PKGBUILD, which handles dependencies, building, and installation automatically:
 
 ```bash
+# Install build tools
+sudo pacman -S base-devel
+```
+```bash
 # Create a clean build directory
 mkdir analogvumeter-build && cd analogvumeter-build
 
@@ -49,7 +53,9 @@ curl -O https://raw.githubusercontent.com/hpmachining/AnalogVUMeter/main/PKGBUIL
 
 # Build and create package (installs dependencies automatically)
 makepkg -s
+```
 
+```bash
 # Install the package
 sudo pacman -U analogvumeter-*.pkg.tar.zst
 ```
@@ -76,7 +82,7 @@ sudo dnf install -y @development-tools cmake pkgconf-pkg-config \
 #### Arch Linux
 
 ```bash
-sudo pacman -S base-devel cmake pkgconf qt6-base libpulse libzip
+sudo pacman -S base-devel cmake qt6-base libpulse libzip
 ```
 
 #### macOS
@@ -95,13 +101,13 @@ Once dependencies are installed, build the application:
 
 ```bash
 # Configure the build
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=None
 
 # On macOS, you may need to specify Qt location:
 # cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
 
 # Build
-cmake --build build -j$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+cmake --build build
 ```
 
 ## Running the Application

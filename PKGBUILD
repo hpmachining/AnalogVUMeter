@@ -1,13 +1,13 @@
 # Maintainer: hpmachining <aur at hpminc dot com>
 pkgname=analogvumeter
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A desktop application that visually replicates a classic analog stereo VU meter"
 arch=('x86_64')
 url="https://github.com/hpmachining/AnalogVUMeter"
 license=('MIT')
 depends=('qt6-base' 'libpulse' 'libzip')
-makedepends=('cmake' 'pkgconf')
+makedepends=('cmake')
 optdepends=(
     'pipewire-pulse: PulseAudio-compatible server for audio monitoring'
     'pulseaudio: PulseAudio server for audio monitoring'
@@ -17,7 +17,7 @@ sha256sums=('17210a600bd2c2cc13f769696016e8a76be17e0d3abd18d9e8e5891762b461ed')
 
 build() {
     cd "AnalogVUMeter-$pkgver"
-    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=None
     cmake --build build
 }
 
