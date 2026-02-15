@@ -3,6 +3,8 @@
 #include <QList>
 #include <QObject>
 #include <QString>
+#include <QList>
+#include <QSettings>
 
 #include <atomic>
 #include <thread>
@@ -38,6 +40,8 @@ class AudioCapture final : public QObject {
     struct Options final {
         int deviceIndex = -1; // unused in libpulse path, retained for compatibility
         double referenceDbfs = -14.0;
+        double microphoneReferenceDbfs = 0.0; // Per-device reference for microphone
+        double monitorReferenceDbfs = -14.0; // Per-device reference for monitor
         bool referenceDbfsOverride = false;
         int sampleRate = 48000;
         unsigned long framesPerBuffer = 512;
@@ -64,6 +68,19 @@ class AudioCapture final : public QObject {
     // Get/set reference dBFS for 0 VU calibration
     double referenceDbfs() const;
     void setReferenceDbfs(double value);
+    
+    // Get/set per-device reference levels
+    double microphoneReferenceDbfs() const;
+    double monitorReferenceDbfs() const;
+    void setMicrophoneReferenceDbfs(double value);
+    void setMonitorReferenceDbfs(double value);
+    
+    // Load/save per-device reference levels from/to persistent storage
+    void loadReferenceLevels();
+    void saveReferenceLevels();
+    
+    // Get the effective reference dBFS based on device type
+    double effectiveReferenceDbfs() const;
 
     float leftVuDb() const;
     float rightVuDb() const;

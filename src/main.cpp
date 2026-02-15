@@ -5,11 +5,14 @@
 
 #include "AudioCapture.h"
 #include "MainWindow.h"
+#include "version.h"
 
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("AnalogVUMeterQt");
-    QCoreApplication::setApplicationVersion("0.1.0");
+    QCoreApplication::setApplicationVersion(APP_VERSION);
+    QCoreApplication::setOrganizationName("AnalogVUMeter");
+    QCoreApplication::setOrganizationDomain("analogvumeter.org");
 
     QCommandLineParser parser;
 #if defined(__APPLE__)

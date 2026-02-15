@@ -28,6 +28,7 @@ class MainWindow final : public QMainWindow {
     void onSkinSelected(QAction* action);
     void importSkin();
     void refreshDeviceMenu();
+    void refreshReferenceMenu();
     void showAbout();
 
   private:

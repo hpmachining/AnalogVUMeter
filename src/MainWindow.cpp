@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 
 #include <QCloseEvent>
+#include <QDebug>
 #include <QFileDialog>
 #include <QMenu>
 #include <QMenuBar>
@@ -10,17 +11,19 @@
 #if defined(ANALOGVU_HAS_LIBZIP) && (ANALOGVU_HAS_LIBZIP == 1)
 #include "SkinImporter.h"
 #endif
+
 #include "StereoVUMeterWidget.h"
 #include "version.h"
 
-MainWindow::MainWindow(const AudioCapture::Options& options, QWidget* parent) : QMainWindow(parent), audio_(options) {
-    setWindowTitle("Analog VU Meter");
-
-    meter_ = new StereoVUMeterWidget(this);
+MainWindow::MainWindow(const AudioCapture::Options& options, QWidget* parent)
+    : QMainWindow(parent), audio_(options) {
+    setWindowTitle(tr("Analog VU Meter"));
+    meter_ = new StereoVUMeterWidget();
     setCentralWidget(meter_);
 
-    resize(820, 340);
-    setMinimumSize(680, 280);
+    // Connect device change signal to refresh menus
+    connect(&audio_, &AudioCapture::deviceChanged, this, &MainWindow::refreshDeviceMenu);
+    connect(&audio_, &AudioCapture::deviceChanged, this, &MainWindow::refreshReferenceMenu);
 
     // Create the menu bar
     createMenuBar();
@@ -123,13 +126,13 @@ void MainWindow::showAbout() {
 }
 
 void MainWindow::populateDeviceMenu() {
-    // Clear existing actions from device menu
-    deviceMenu_->clear();
-
     // Remove old actions from action group
     for (QAction* action : deviceActionGroup_->actions()) {
         deviceActionGroup_->removeAction(action);
     }
+    
+    // Clear the menu itself
+    deviceMenu_->clear();
 
     // Get list of input devices
     QList<AudioCapture::DeviceInfo> devices = AudioCapture::enumerateInputDevices();
@@ -168,10 +171,18 @@ void MainWindow::populateDeviceMenu() {
 }
 
 void MainWindow::populateReferenceMenu() {
+    // Remove old actions from action group
+    for (QAction* action : referenceActionGroup_->actions()) {
+        referenceActionGroup_->removeAction(action);
+    }
+    
+    // Clear the menu itself
+    referenceMenu_->clear();
+
     // dBFS reference values: +6 to -20 in 2 dB steps
     const int referenceValues[] = {6, 4, 2, 0, -2, -4, -6, -8, -10, -12, -14, -16, -18, -20};
 
-    double currentRef = audio_.referenceDbfs();
+    double currentRef = audio_.effectiveReferenceDbfs();
 
     for (int value : referenceValues) {
         QString displayName = QString("%1 dB").arg(value);
@@ -187,7 +198,7 @@ void MainWindow::populateReferenceMenu() {
             action->setChecked(true);
         }
     }
-
+    
     // If nothing is checked, default to -14 dB (system output default)
     if (!referenceActionGroup_->checkedAction()) {
         for (QAction* action : referenceActionGroup_->actions()) {
@@ -228,6 +239,8 @@ void MainWindow::onReferenceSelected(QAction* action) {
 }
 
 void MainWindow::refreshDeviceMenu() { populateDeviceMenu(); }
+
+void MainWindow::refreshReferenceMenu() { populateReferenceMenu(); }
 
 void MainWindow::populateStyleMenu() {
     if (!styleMenu_ || !vectorStyleMenu_ || !skinStyleMenu_)

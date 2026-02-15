@@ -14,7 +14,9 @@ static constexpr float kMaxVu = 3.0f;
 
 AudioCapture::AudioCapture(const Options& options, QObject* parent)
     : QObject(parent), options_(options), currentDeviceUID_(options.deviceName), ballisticsL_(kMinVu),
-      ballisticsR_(kMinVu) {}
+      ballisticsR_(kMinVu) {
+    loadReferenceLevels();
+}
 
 AudioCapture::~AudioCapture() { stop(); }
 
@@ -201,8 +203,37 @@ QString AudioCapture::currentDeviceUID() const { return currentDeviceUID_; }
 double AudioCapture::referenceDbfs() const { return options_.referenceDbfs; }
 
 void AudioCapture::setReferenceDbfs(double value) {
-    options_.referenceDbfs = value;
-    options_.referenceDbfsOverride = true;
+    // Store per-device reference level
+    if (options_.deviceType == 1) {
+        options_.microphoneReferenceDbfs = value;
+    } else {
+        options_.monitorReferenceDbfs = value;
+    }
+    saveReferenceLevels();
+}
+
+double AudioCapture::microphoneReferenceDbfs() const { return options_.microphoneReferenceDbfs; }
+
+double AudioCapture::monitorReferenceDbfs() const { return options_.monitorReferenceDbfs; }
+
+void AudioCapture::setMicrophoneReferenceDbfs(double value) { 
+    options_.microphoneReferenceDbfs = value; 
+    saveReferenceLevels();
+}
+
+void AudioCapture::setMonitorReferenceDbfs(double value) { 
+    options_.monitorReferenceDbfs = value; 
+    saveReferenceLevels();
+}
+
+double AudioCapture::effectiveReferenceDbfs() const {
+    if (options_.deviceType == 1) {
+        // Microphone mode - use per-device microphone reference
+        return options_.microphoneReferenceDbfs;
+    } else {
+        // System output mode - use per-device monitor reference
+        return options_.monitorReferenceDbfs;
+    }
 }
 
 float AudioCapture::leftVuDb() const { return leftVuDb_.load(std::memory_order_relaxed); }
@@ -514,6 +545,22 @@ void AudioCapture::processAudioBuffer(const float* data, unsigned int frames, un
 
     leftVuDb_.store(vuL, std::memory_order_relaxed);
     rightVuDb_.store(vuR, std::memory_order_relaxed);
+}
+
+void AudioCapture::loadReferenceLevels() {
+    QSettings settings;
+    settings.beginGroup("AudioCapture");
+    options_.microphoneReferenceDbfs = settings.value("microphoneReferenceDbfs", 0.0).toDouble();
+    options_.monitorReferenceDbfs = settings.value("monitorReferenceDbfs", -14.0).toDouble();
+    settings.endGroup();
+}
+
+void AudioCapture::saveReferenceLevels() {
+    QSettings settings;
+    settings.beginGroup("AudioCapture");
+    settings.setValue("microphoneReferenceDbfs", options_.microphoneReferenceDbfs);
+    settings.setValue("monitorReferenceDbfs", options_.monitorReferenceDbfs);
+    settings.endGroup();
 }
 
 #endif // __APPLE__
