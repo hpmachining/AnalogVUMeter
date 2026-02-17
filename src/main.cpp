@@ -9,7 +9,7 @@
 
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
-    QCoreApplication::setApplicationName("AnalogVUMeterQt");
+    QCoreApplication::setApplicationName("AnalogVUMeter");
     QCoreApplication::setApplicationVersion(APP_VERSION);
     QCoreApplication::setOrganizationName("AnalogVUMeter");
     QCoreApplication::setOrganizationDomain("analogvumeter.org");

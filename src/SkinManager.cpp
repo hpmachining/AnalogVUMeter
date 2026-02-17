@@ -1,5 +1,6 @@
 #include "SkinManager.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -217,7 +218,8 @@ bool parseMeterStrict(const QJsonObject& meterObj,
 SkinManager::SkinManager() = default;
 
 QString SkinManager::skinsRootPath() {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/skins");
+    return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + 
+           QStringLiteral("/") + QCoreApplication::applicationName() + QStringLiteral("/skins");
 }
 
 void SkinManager::scan() {
