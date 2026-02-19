@@ -22,6 +22,9 @@ struct pa_context;
 struct pa_stream;
 struct pa_sink_info;
 struct pa_source_info;
+struct pa_sample_spec;
+struct pa_channel_map;
+struct VuAudioDspState;
 #endif
 
 class AudioCapture final : public QObject {
@@ -50,6 +53,7 @@ class AudioCapture final : public QObject {
         QString deviceName;
 
         // 0 = sink monitor/system output, 1 = source/microphone
+        // Note: This may be updated during initialization based on device name
         int deviceType = 0;
     };
 
@@ -113,11 +117,22 @@ class AudioCapture final : public QObject {
     static void source_info_callback(pa_context* c, const pa_source_info* si, int is_last, void* userdata);
     static void stream_state_callback(pa_stream* s, void* userdata);
     static void stream_read_callback(pa_stream* s, size_t length, void* userdata);
+    
+    // Helper to create stream from device info
+    void create_stream_from_spec(const pa_sample_spec& sample_spec,
+                                  const pa_channel_map& channel_map,
+                                  const char* source_name);
+    
+    // Helper for temporary context creation during enumeration
+    static pa_context* create_temporary_context(pa_mainloop*& ml);
 #endif
 
   private:
     Options options_;
     QString currentDeviceUID_;
+    
+    // Thread-safe access for device type
+    std::atomic<int> deviceType_{0};
 
     std::atomic<float> leftVuDb_{-22.0f};
     std::atomic<float> rightVuDb_{-22.0f};
@@ -140,6 +155,9 @@ class AudioCapture final : public QObject {
     pa_mainloop* mainloop_ = nullptr;
     pa_context* context_ = nullptr;
     pa_stream* stream_ = nullptr;
+    
+    // DSP state - per instance, not static!
+    VuAudioDspState* dspState_ = nullptr;
 #endif
 
     VUBallistics ballisticsL_;
