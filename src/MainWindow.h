@@ -36,6 +36,8 @@ class MainWindow final : public QMainWindow {
     void populateDeviceMenu();
     void populateReferenceMenu();
     void populateStyleMenu();
+    void saveStylePreference();
+    void loadStylePreference();
 
     AudioCapture audio_;
     StereoVUMeterWidget* meter_ = nullptr;

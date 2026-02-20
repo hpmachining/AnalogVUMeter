@@ -27,6 +27,7 @@ MainWindow::MainWindow(const AudioCapture::Options& options, QWidget* parent)
 
     // Create the menu bar
     createMenuBar();
+    loadStylePreference();
 
     QString err;
     if (!audio_.start(&err)) {
@@ -326,6 +327,7 @@ void MainWindow::onVectorStyleSelected(QAction* action) {
     skinManager_.clearActiveSkin();
     meter_->clearSkin();
     meter_->setStyle(style);
+    saveStylePreference();
 }
 
 void MainWindow::onSkinSelected(QAction* action) {
@@ -341,6 +343,7 @@ void MainWindow::onSkinSelected(QAction* action) {
         skinManager_.clearActiveSkin();
         meter_->clearSkin();
         meter_->setStyle(VUMeterStyle::Skin);
+        saveStylePreference();
         return;
     }
 
@@ -357,6 +360,7 @@ void MainWindow::onSkinSelected(QAction* action) {
     skinManager_.setActiveSkinId(skinId);
     meter_->setSkinPackage(loaded.package);
     meter_->setStyle(VUMeterStyle::Skin);
+    saveStylePreference();
 }
 
 void MainWindow::importSkin() {
@@ -390,5 +394,67 @@ void MainWindow::importSkin() {
     meter_->setSkinPackage(loaded.package);
     meter_->setStyle(VUMeterStyle::Skin);
     populateStyleMenu();
+    saveStylePreference();
 #endif
+}
+
+void MainWindow::saveStylePreference() {
+    QSettings settings;
+    settings.beginGroup("Appearance");
+
+    const VUMeterStyle currentStyle = meter_->style();
+
+    if (currentStyle == VUMeterStyle::Skin) {
+        // Save that we're using a skin
+        settings.setValue("styleType", "skin");
+
+        // Save which skin (empty string means default skin)
+        const QString activeSkin = skinManager_.activeSkinId();
+        settings.setValue("skinId", activeSkin.isEmpty() ? "__default__" : activeSkin);
+    } else {
+        // Save that we're using a vector style
+        settings.setValue("styleType", "vector");
+        settings.setValue("vectorStyle", static_cast<int>(currentStyle));
+    }
+
+    settings.endGroup();
+}
+
+void MainWindow::loadStylePreference() {
+    QSettings settings;
+    settings.beginGroup("Appearance");
+
+    const QString styleType = settings.value("styleType", "skin").toString();
+
+    if (styleType == "skin") {
+        const QString skinId = settings.value("skinId", "__default__").toString();
+
+        if (skinId == "__default__") {
+            // Use default skin
+            meter_->clearSkin();
+            meter_->setStyle(VUMeterStyle::Skin);
+        } else {
+            // Try to load the saved skin
+            const SkinManager::LoadedSkin loaded = skinManager_.loadSkin(skinId);
+            if (loaded.ok) {
+                skinManager_.setActiveSkinId(skinId);
+                meter_->setSkinPackage(loaded.package);
+                meter_->setStyle(VUMeterStyle::Skin);
+            } else {
+                // Skin failed to load, fall back to default vector style
+                qDebug() << "Failed to load saved skin:" << loaded.error;
+                meter_->setStyle(VUMeterStyle::Original);
+            }
+        }
+    } else {
+        // Load vector style
+        const int styleValue = settings.value("vectorStyle", static_cast<int>(VUMeterStyle::Original)).toInt();
+        const VUMeterStyle style = static_cast<VUMeterStyle>(styleValue);
+        meter_->setStyle(style);
+    }
+
+    settings.endGroup();
+
+    // Update the menu to reflect the loaded style
+    populateStyleMenu();
 }
